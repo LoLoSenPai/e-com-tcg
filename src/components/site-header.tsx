@@ -10,7 +10,6 @@ const navLinks = [
   { href: "/contact", label: "Contact" },
 ];
 
-const mainFranchises = ["Pokemon", "One Piece"];
 
 export function SiteHeader() {
   const { totalItems } = useCart();
@@ -42,17 +41,6 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-slate-600 md:flex">
-              {mainFranchises.map((franchise) => (
-                <Link
-                  key={franchise}
-                  href={`/catalog?franchise=${encodeURIComponent(franchise)}`}
-                  className="rounded-full px-3 py-1 transition hover:bg-[var(--surface-strong)]"
-                >
-                  {franchise}
-                </Link>
-              ))}
-            </div>
             <Link
               href="/cart"
               className="relative rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold shadow-soft transition hover:-translate-y-0.5"

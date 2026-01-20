@@ -1,6 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getProducts } from "@/lib/products";
-import { categories } from "@/lib/sample-data";
 import { ProductCard } from "@/components/product-card";
 
 export const dynamic = "force-dynamic";
@@ -92,29 +92,78 @@ export default async function Home() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-              Sous categories
+              Univers
             </p>
             <h2 className="font-display text-2xl text-slate-900">
-              Ton style, ton deck, ton boost
+              Choisis ta vibe TCG
             </h2>
           </div>
-          <Link
-            href="/catalog"
-            className="text-sm font-semibold text-slate-600 transition hover:text-black"
-          >
-            Voir tout &gt;
-          </Link>
         </div>
-        <div className="flex flex-wrap gap-3">
-          {categories.map((category) => (
-            <Link
-              key={category}
-              href={`/categories/${encodeURIComponent(category)}`}
-              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-soft transition hover:-translate-y-0.5"
-            >
-              {category}
-            </Link>
-          ))}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Link
+            href="/catalog?franchise=Pokemon"
+            className="group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] border border-black/10 bg-[linear-gradient(120deg,#fff2de,#ffbf69)] p-10 shadow-soft transition hover:-translate-y-1"
+          >
+            <div className="absolute inset-0 opacity-60">
+              <div className="absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/50 blur-2xl" />
+              <div className="absolute bottom-6 left-8 h-16 w-32 rounded-full bg-white/40 blur-xl" />
+            </div>
+            <div className="relative z-10 max-w-xs space-y-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                Pokemon
+              </p>
+              <h3 className="font-display text-3xl text-slate-900">
+                Boosters &amp; etb legendaires
+              </h3>
+              <p className="text-sm text-slate-600">
+                Sets collectors, promos shiny et packs competitifs.
+              </p>
+              <span className="inline-flex rounded-full bg-black px-4 py-2 text-xs font-semibold text-white">
+                Explorer Pokemon
+              </span>
+            </div>
+            <div className="pointer-events-none absolute -right-6 bottom-0 hidden h-[240px] w-[240px] md:block">
+              <Image
+                src="/images/pokemon-cat.png"
+                alt="Pokemon"
+                fill
+                className="object-contain"
+                sizes="240px"
+              />
+            </div>
+          </Link>
+          <Link
+            href="/catalog?franchise=One%20Piece"
+            className="group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] border border-black/10 bg-[linear-gradient(120deg,#e3f7f5,#2ec4b6)] p-10 shadow-soft transition hover:-translate-y-1"
+          >
+            <div className="absolute inset-0 opacity-60">
+              <div className="absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/50 blur-2xl" />
+              <div className="absolute bottom-6 left-10 h-16 w-32 rounded-full bg-white/40 blur-xl" />
+            </div>
+            <div className="relative z-10 max-w-xs space-y-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                One Piece
+              </p>
+              <h3 className="font-display text-3xl text-slate-900">
+                Coffrets &amp; displays pirates
+              </h3>
+              <p className="text-sm text-slate-600">
+                Drops de la Grand Line, boosters et accessoires premium.
+              </p>
+              <span className="inline-flex rounded-full bg-black px-4 py-2 text-xs font-semibold text-white">
+                Explorer One Piece
+              </span>
+            </div>
+            <div className="pointer-events-none absolute -right-4 bottom-0 hidden h-[250px] w-[250px] md:block">
+              <Image
+                src="/images/onepiece-cat.png"
+                alt="One Piece"
+                fill
+                className="object-contain"
+                sizes="250px"
+              />
+            </div>
+          </Link>
         </div>
       </section>
 
