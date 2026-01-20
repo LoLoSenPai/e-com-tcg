@@ -18,10 +18,19 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `MONGODB_URI`
 - `MONGODB_DB` (optionnel, defaut: `nebula_tcg`)
 - `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 - `ADMIN_TOKEN`
 - `NEXT_PUBLIC_SITE_URL` (optionnel en dev)
+- `RESEND_API_KEY` (email)
+- `EMAIL_FROM` (email)
 
-## Admin / Seed
+## Admin / Orders
 
 - Page login: `/admin/login`
-- Dashboard: `/admin` (CRUD produits, upload image, seed)
+- Produits: `/admin` (CRUD produits, upload image, seed, migration)
+- Commandes: `/admin/orders`
+
+## Webhooks Stripe
+
+- Endpoint: `/api/stripe/webhook`
+- Ajoute `STRIPE_WEBHOOK_SECRET` dans `.env.local`

@@ -70,6 +70,12 @@ export async function POST(request: Request) {
     line_items: lineItems,
     success_url: `${origin}/cart?success=1`,
     cancel_url: `${origin}/cart?cancel=1`,
+    shipping_address_collection: {
+      allowed_countries: ["FR", "BE", "CH", "LU"],
+    },
+    phone_number_collection: {
+      enabled: true,
+    },
   });
 
   return NextResponse.json({ url: session.url });

@@ -233,6 +233,12 @@ export function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <a
+            href="/admin/orders"
+            className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
+          >
+            Orders
+          </a>
           <button
             type="button"
             onClick={handleSeed}
