@@ -6,11 +6,11 @@ import { ProductCard } from "@/components/product-card";
 export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
-  params: { category: string };
+  params: Promise<{ category: string }>;
 };
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { category } = params;
+  const { category } = await params;
   const decoded = decodeURIComponent(category);
   if (!categories.includes(decoded as (typeof categories)[number])) {
     notFound();
