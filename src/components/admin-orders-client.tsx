@@ -163,7 +163,10 @@ export function AdminOrdersClient() {
                 <select
                   value={order.status}
                   onChange={(event) =>
-                    updateStatus(order._id || "", event.target.value as OrderStatus)
+                    updateStatus(
+                      order._id ? String(order._id) : "",
+                      event.target.value as OrderStatus,
+                    )
                   }
                   className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold"
                 >
