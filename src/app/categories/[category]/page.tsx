@@ -3,6 +3,8 @@ import { categories } from "@/lib/sample-data";
 import { getProducts } from "@/lib/products";
 import { ProductCard } from "@/components/product-card";
 
+export const dynamic = "force-dynamic";
+
 type CategoryPageProps = {
   params: { category: string };
 };

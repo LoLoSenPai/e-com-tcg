@@ -3,6 +3,8 @@ import { getProducts } from "@/lib/products";
 import { categories } from "@/lib/sample-data";
 import { ProductCard } from "@/components/product-card";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const products = await getProducts();
   const featured = products.filter((product) => product.featured).slice(0, 4);

@@ -5,6 +5,8 @@ import { formatPrice } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductCard } from "@/components/product-card";
 
+export const dynamic = "force-dynamic";
+
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
