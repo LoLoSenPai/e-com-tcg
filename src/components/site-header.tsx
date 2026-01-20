@@ -1,18 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { useCart } from "@/components/cart-context";
+import { AnimatedTabs } from "@/components/ui/animated-tabs";
 
 const navLinks = [
-  { href: "/catalog", label: "Catalogue" },
-  { href: "/categories", label: "Categories" },
-  { href: "/about", label: "A propos" },
-  { href: "/contact", label: "Contact" },
+  { id: "catalog", href: "/catalog", label: "Catalogue" },
+  { id: "categories", href: "/categories", label: "Categories" },
+  { id: "about", href: "/about", label: "A propos" },
+  { id: "contact", href: "/contact", label: "Contact" },
 ];
 
 
 export function SiteHeader() {
   const { totalItems } = useCart();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const activeTab = useMemo(() => {
+    if (!pathname) return "catalog";
+    if (pathname.startsWith("/products")) return "catalog";
+    if (pathname.startsWith("/categories")) return "categories";
+    const match = navLinks.find((link) => pathname.startsWith(link.href));
+    return match?.id ?? "catalog";
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50">
@@ -28,16 +41,18 @@ export function SiteHeader() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="transition hover:text-black"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <nav className="hidden items-center md:flex">
+            <AnimatedTabs
+              tabs={navLinks.map((link) => ({
+                id: link.id,
+                label: link.label,
+              }))}
+              activeTabId={activeTab}
+              onChange={(tabId) => {
+                const next = navLinks.find((link) => link.id === tabId);
+                if (next) router.push(next.href);
+              }}
+            />
           </nav>
 
           <div className="flex items-center gap-3">

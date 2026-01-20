@@ -14,19 +14,37 @@ declare global {
 }
 
 let clientPromise: Promise<MongoClient> | undefined;
+let hasLoggedError = false;
 
 if (uri) {
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(uri);
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+    });
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
 }
 
-export async function getDb() {
+async function getClient() {
   if (!clientPromise) {
     throw new Error("MongoDB client not initialized.");
   }
-  const client = await clientPromise;
+  try {
+    return await clientPromise;
+  } catch (error) {
+    if (!hasLoggedError) {
+      console.warn("MongoDB connection failed, retrying on next request.");
+      hasLoggedError = true;
+    }
+    global._mongoClientPromise = undefined;
+    clientPromise = undefined;
+    throw error;
+  }
+}
+
+export async function getDb() {
+  const client = await getClient();
   return client.db(process.env.MONGODB_DB || "nebula_tcg");
 }

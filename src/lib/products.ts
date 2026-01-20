@@ -31,39 +31,56 @@ export async function getProducts(): Promise<Product[]> {
   if (!process.env.MONGODB_URI) {
     return sampleProducts;
   }
-  const db = await getDb();
-  const docs = await db.collection<Product>(collectionName).find({}).toArray();
-  if (docs.length === 0) {
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Product>(collectionName)
+      .find({})
+      .toArray();
+    if (docs.length === 0) {
+      return sampleProducts;
+    }
+    return docs.map(normalizeProduct).map(applySampleFallback);
+  } catch {
     return sampleProducts;
   }
-  return docs.map(normalizeProduct).map(applySampleFallback);
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (!process.env.MONGODB_URI) {
     return sampleProducts.find((item) => item.slug === slug) ?? null;
   }
-  const db = await getDb();
-  const doc = await db.collection<Product>(collectionName).findOne({ slug });
-  if (doc) {
-    return applySampleFallback(normalizeProduct(doc));
+  try {
+    const db = await getDb();
+    const doc = await db
+      .collection<Product>(collectionName)
+      .findOne({ slug });
+    if (doc) {
+      return applySampleFallback(normalizeProduct(doc));
+    }
+    return sampleProducts.find((item) => item.slug === slug) ?? null;
+  } catch {
+    return sampleProducts.find((item) => item.slug === slug) ?? null;
   }
-  return sampleProducts.find((item) => item.slug === slug) ?? null;
 }
 
 export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
   if (!process.env.MONGODB_URI) {
     return sampleProducts.filter((item) => slugs.includes(item.slug));
   }
-  const db = await getDb();
-  const docs = await db
-    .collection<Product>(collectionName)
-    .find({ slug: { $in: slugs } })
-    .toArray();
-  if (docs.length === 0) {
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<Product>(collectionName)
+      .find({ slug: { $in: slugs } })
+      .toArray();
+    if (docs.length === 0) {
+      return sampleProducts.filter((item) => slugs.includes(item.slug));
+    }
+    return docs.map(normalizeProduct).map(applySampleFallback);
+  } catch {
     return sampleProducts.filter((item) => slugs.includes(item.slug));
   }
-  return docs.map(normalizeProduct).map(applySampleFallback);
 }
 
 export async function createProduct(product: Product) {
