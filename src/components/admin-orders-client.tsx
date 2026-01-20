@@ -135,7 +135,10 @@ export function AdminOrdersClient() {
 
       <div className="grid gap-4">
         {filtered.map((order) => (
-          <div key={order._id} className="manga-panel rounded-[24px] bg-white p-4">
+          <div
+            key={order._id ? String(order._id) : order.stripeSessionId}
+            className="manga-panel rounded-[24px] bg-white p-4"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
