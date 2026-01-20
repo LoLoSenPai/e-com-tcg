@@ -22,7 +22,7 @@ export default async function AdminOrderDetailPage({
     <main className="mx-auto w-full max-w-6xl px-6 py-16">
       <div className="mb-8 space-y-3">
         <Link href="/admin/orders" className="text-sm text-slate-500">
-          <- Retour aux commandes
+          &larr; Retour aux commandes
         </Link>
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
           Order detail
