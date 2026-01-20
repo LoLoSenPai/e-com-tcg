@@ -1,22 +1,44 @@
 import { notFound } from "next/navigation";
-import { categories } from "@/lib/sample-data";
+import { categories, franchises } from "@/lib/sample-data";
 import { getProducts } from "@/lib/products";
 import { ProductCard } from "@/components/product-card";
+import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ franchise?: string }>;
 };
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
+function filterByFranchise(products: Product[], franchise?: string) {
+  if (!franchise || franchise === "Tous") return products;
+  return products.filter((product) => {
+    if (product.franchise === "Both") return true;
+    if (product.franchise) return product.franchise === franchise;
+    return product.tags?.includes(franchise) ?? true;
+  });
+}
+
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: CategoryPageProps) {
   const { category } = await params;
+  const paramsSearch = await searchParams;
+  const selected =
+    paramsSearch.franchise &&
+    franchises.includes(paramsSearch.franchise as (typeof franchises)[number])
+      ? paramsSearch.franchise
+      : "Tous";
   const decoded = decodeURIComponent(category);
   if (!categories.includes(decoded as (typeof categories)[number])) {
     notFound();
   }
   const products = await getProducts();
-  const filtered = products.filter((product) => product.category === decoded);
+  const filtered = filterByFranchise(products, selected).filter(
+    (product) => product.category === decoded,
+  );
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16">

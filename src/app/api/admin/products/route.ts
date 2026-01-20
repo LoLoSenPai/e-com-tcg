@@ -33,8 +33,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { name, slug, category, price, description, badge, tags, stock, image } =
-    body;
+  const {
+    name,
+    slug,
+    category,
+    franchise,
+    price,
+    description,
+    badge,
+    tags,
+    stock,
+    image,
+  } = body;
 
   if (!name || !slug || !category || !price || !description) {
     return NextResponse.json(
@@ -47,6 +57,7 @@ export async function POST(request: NextRequest) {
     name,
     slug,
     category,
+    franchise,
     price: Number(price),
     description,
     badge,

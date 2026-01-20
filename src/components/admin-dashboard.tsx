@@ -8,6 +8,7 @@ type FormState = {
   name: string;
   slug: string;
   category: string;
+  franchise: string;
   price: string;
   description: string;
   badge: string;
@@ -20,6 +21,7 @@ const emptyForm: FormState = {
   name: "",
   slug: "",
   category: "",
+  franchise: "Pokemon",
   price: "",
   description: "",
   badge: "",
@@ -71,12 +73,16 @@ export function AdminDashboard() {
   }, [products, search]);
 
   function handleEdit(product: Product) {
+    const fallbackFranchise =
+      product.franchise ||
+      (product.tags?.includes("One Piece") ? "One Piece" : "Pokemon");
     setEditingSlug(product.slug);
     setEditingId(product._id ?? null);
     setForm({
       name: product.name,
       slug: product.slug,
       category: product.category,
+      franchise: fallbackFranchise,
       price: String(product.price),
       description: product.description,
       badge: product.badge ?? "",
@@ -165,6 +171,26 @@ export function AdminDashboard() {
     }
   }
 
+  async function handleMigrateFranchise() {
+    setLoading(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/migrate-franchise", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Migration failed");
+      }
+      setStatus(`Migration OK: ${data.updated} produits.`);
+      await loadProducts();
+    } catch {
+      setStatus("Migration impossible.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -214,6 +240,14 @@ export function AdminDashboard() {
             className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
           >
             Seed demo
+          </button>
+          <button
+            type="button"
+            onClick={handleMigrateFranchise}
+            disabled={loading}
+            className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
+          >
+            Migrer franchise
           </button>
           <button
             type="button"
@@ -309,27 +343,38 @@ export function AdminDashboard() {
               required
               className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
             />
-            <div className="grid gap-3 md:grid-cols-2">
-              <input
-                value={form.category}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, category: event.target.value }))
-                }
-                placeholder="Categorie"
-                required
-                className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
-              />
-              <input
-                value={form.price}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, price: event.target.value }))
-                }
-                placeholder="Prix (centimes)"
-                type="number"
-                required
-                className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
-              />
-            </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={form.category}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, category: event.target.value }))
+              }
+              placeholder="Categorie"
+              required
+              className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+            />
+            <select
+              value={form.franchise}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, franchise: event.target.value }))
+              }
+              className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+            >
+              <option value="Pokemon">Pokemon</option>
+              <option value="One Piece">One Piece</option>
+              <option value="Both">Both</option>
+            </select>
+          </div>
+          <input
+            value={form.price}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, price: event.target.value }))
+            }
+            placeholder="Prix (centimes)"
+            type="number"
+            required
+            className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+          />
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 value={form.badge}

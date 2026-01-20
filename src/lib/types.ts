@@ -3,6 +3,7 @@ export type Product = {
   name: string;
   slug: string;
   category: string;
+  franchise?: "Pokemon" | "One Piece" | "Both";
   price: number;
   description: string;
   image?: string;

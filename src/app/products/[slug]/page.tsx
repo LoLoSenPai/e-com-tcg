@@ -64,6 +64,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
             {product.category}
           </p>
+          {product.franchise ? (
+            <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+              {product.franchise}
+            </span>
+          ) : null}
           <h1 className="font-display text-4xl text-slate-900">
             {product.name}
           </h1>

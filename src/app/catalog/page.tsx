@@ -1,10 +1,29 @@
 import { getProducts } from "@/lib/products";
-import { categories } from "@/lib/sample-data";
+import { categories, franchises } from "@/lib/sample-data";
 import { CatalogClient } from "@/components/catalog-client";
+import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function CatalogPage() {
+type CatalogPageProps = {
+  searchParams: Promise<{ franchise?: string }>;
+};
+
+function filterByFranchise(products: Product[], franchise?: string) {
+  if (!franchise || franchise === "Tous") return products;
+  return products.filter((product) => {
+    if (product.franchise === "Both") return true;
+    if (product.franchise) return product.franchise === franchise;
+    return product.tags?.includes(franchise) ?? true;
+  });
+}
+
+export default async function CatalogPage({ searchParams }: CatalogPageProps) {
+  const params = await searchParams;
+  const selected =
+    params.franchise && franchises.includes(params.franchise as (typeof franchises)[number])
+      ? params.franchise
+      : "Tous";
   const products = await getProducts();
 
   return (
@@ -21,8 +40,10 @@ export default async function CatalogPage() {
         </p>
       </div>
       <CatalogClient
-        products={products}
+        products={filterByFranchise(products, selected)}
         categories={[...categories]}
+        franchises={["Tous", ...franchises]}
+        initialFranchise={selected}
       />
     </main>
   );

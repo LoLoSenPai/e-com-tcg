@@ -9,6 +9,7 @@ type ProductCardProps = {
 
 export function ProductCard({ product }: ProductCardProps) {
   const outOfStock = (product.stock ?? 0) <= 0;
+  const franchiseLabel = product.franchise || product.tags?.[0];
 
   return (
     <div className="card-foil group rounded-3xl border border-black/10 bg-white p-5 shadow-soft transition hover:-translate-y-1">
@@ -22,6 +23,11 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         ) : null}
       </div>
+      {franchiseLabel ? (
+        <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+          {franchiseLabel}
+        </div>
+      ) : null}
       <Link href={`/products/${product.slug}`}>
         <div
           className="mt-6 grid aspect-[3/4] place-items-center rounded-2xl bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600"

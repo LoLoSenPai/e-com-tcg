@@ -10,11 +10,14 @@ export const categories = [
   "Protection",
 ] as const;
 
+export const franchises = ["Pokemon", "One Piece"] as const;
+
 export const sampleProducts: Product[] = [
   {
     name: "Coffret Rayquaza Foudre Nacree",
     slug: "coffret-rayquaza-foudre-nacree",
     category: "Coffret",
+    franchise: "Pokemon",
     price: 5990,
     description:
       "Coffret collector avec booster exclusif et sleeves holo pour des tirages legendaires.",
@@ -28,6 +31,7 @@ export const sampleProducts: Product[] = [
     name: "Elite Trainer Box Luffy Sunburst",
     slug: "etb-luffy-sunburst",
     category: "Elite trainer box",
+    franchise: "One Piece",
     price: 5490,
     description:
       "Pack complet pour demarrer One Piece TCG avec accessoires premium.",
@@ -41,6 +45,7 @@ export const sampleProducts: Product[] = [
     name: "UPC Pikachu Comet Rush",
     slug: "upc-pikachu-comet-rush",
     category: "Upc",
+    franchise: "Pokemon",
     price: 15900,
     description:
       "Ultimate premium collection, cartes promo, boosters et deck box ultra deluxe.",
@@ -54,6 +59,7 @@ export const sampleProducts: Product[] = [
     name: "Display Gear 5 Storm",
     slug: "display-gear-5-storm",
     category: "Display",
+    franchise: "One Piece",
     price: 11900,
     description:
       "Display One Piece 24 boosters, parfait pour sceller un event.",
@@ -67,6 +73,7 @@ export const sampleProducts: Product[] = [
     name: "Booster Pokemon Cosmos Rift",
     slug: "booster-pokemon-cosmos-rift",
     category: "Booster",
+    franchise: "Pokemon",
     price: 590,
     description: "Booster classique pour booster ta collection cosmique.",
     badge: "Hot",
@@ -78,6 +85,7 @@ export const sampleProducts: Product[] = [
     name: "Booster One Piece Grand Line",
     slug: "booster-one-piece-grand-line",
     category: "Booster",
+    franchise: "One Piece",
     price: 650,
     description: "Booster One Piece avec artset exclusif.",
     badge: "Hot",
@@ -89,6 +97,7 @@ export const sampleProducts: Product[] = [
     name: "Blister Duo V-Star",
     slug: "blister-duo-v-star",
     category: "Blister",
+    franchise: "Pokemon",
     price: 1290,
     description: "Blister duo Pokemon pour pulls rapides.",
     image: "/images/demo-1.svg",
@@ -99,6 +108,7 @@ export const sampleProducts: Product[] = [
     name: "Blister One Piece Dawn",
     slug: "blister-one-piece-dawn",
     category: "Blister",
+    franchise: "One Piece",
     price: 1390,
     description: "Blister One Piece, edition Dawn.",
     image: "/images/demo-2.svg",
@@ -109,6 +119,7 @@ export const sampleProducts: Product[] = [
     name: "Display Pokemon Ether Prism",
     slug: "display-pokemon-ether-prism",
     category: "Display",
+    franchise: "Pokemon",
     price: 12900,
     description: "Display Pokemon 36 boosters pour les gros openings.",
     badge: "Pro",
@@ -120,6 +131,7 @@ export const sampleProducts: Product[] = [
     name: "Protection Hyper Shield",
     slug: "protection-hyper-shield",
     category: "Protection",
+    franchise: "Both",
     price: 1490,
     description:
       "Set sleeves + toploader premium pour proteger tes pulls.",
@@ -131,6 +143,7 @@ export const sampleProducts: Product[] = [
     name: "Protection Vault Deckbox",
     slug: "protection-vault-deckbox",
     category: "Protection",
+    franchise: "Both",
     price: 2490,
     description: "Deckbox rigide avec mousse anti choc.",
     image: "/images/demo-6.svg",
@@ -141,6 +154,7 @@ export const sampleProducts: Product[] = [
     name: "Elite Trainer Box Eevee Nova",
     slug: "etb-eevee-nova",
     category: "Elite trainer box",
+    franchise: "Pokemon",
     price: 5290,
     description: "ETB Pokemon avec dice et accessoires exclusifs.",
     badge: "Fan favorite",
