@@ -85,22 +85,18 @@ export async function updateProductBySlug(
   if (typeof payload.stock === "number") {
     payload.stock = Number(payload.stock);
   }
-  const result = await db
+  await db
     .collection<Product>(collectionName)
-    .findOneAndUpdate(
-      { slug },
-      { $set: payload },
-      { returnDocument: "after" },
-    );
-  return result?.value ?? null;
+    .updateOne({ slug }, { $set: payload });
+  const doc = await db.collection<Product>(collectionName).findOne({ slug });
+  return doc ? normalizeProduct(doc) : null;
 }
 
 export async function deleteProductBySlug(slug: string) {
   const db = await getDb();
-  const result = await db
-    .collection<Product>(collectionName)
-    .findOneAndDelete({ slug });
-  return result?.value ?? null;
+  const doc = await db.collection<Product>(collectionName).findOne({ slug });
+  await db.collection<Product>(collectionName).deleteOne({ slug });
+  return doc ? normalizeProduct(doc) : null;
 }
 
 export async function seedProducts() {
