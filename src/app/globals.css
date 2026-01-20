@@ -1,26 +1,140 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --bg: #f6f1e9;
+  --ink: #131623;
+  --muted: #525a6b;
+  --surface: #fff8ef;
+  --surface-strong: #fff2de;
+  --accent: #ff6b35;
+  --accent-2: #2ec4b6;
+  --accent-3: #ffbf69;
+  --ring: rgba(255, 107, 53, 0.35);
+  --shadow: rgba(15, 23, 42, 0.08);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(255, 191, 105, 0.3), transparent 52%),
+      radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.22), transparent 45%),
+      radial-gradient(circle at 25% 70%, rgba(255, 107, 53, 0.18), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body), "Trebuchet MS", sans-serif;
+  }
+
+  ::selection {
+    background: rgba(255, 107, 53, 0.3);
+    color: var(--ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), "Trebuchet MS", sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  .glass {
+    background: rgba(255, 248, 239, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(19, 22, 35, 0.08);
+  }
+
+  .grid-spark {
+    background-image:
+      linear-gradient(120deg, rgba(19, 22, 35, 0.06) 0, rgba(19, 22, 35, 0.06) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(19, 22, 35, 0.05) 0, rgba(19, 22, 35, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .card-foil {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-foil::after {
+    content: "";
+    position: absolute;
+    inset: -40%;
+    background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.5) 55%, transparent 70%);
+    transform: translateX(-60%);
+    animation: foil-sheen 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .accent-ring {
+    box-shadow: 0 0 0 3px var(--ring), 0 20px 40px -24px rgba(255, 107, 53, 0.5);
+  }
+
+  .animate-float {
+    animation: floaty 6s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: floaty 7s ease-in-out infinite;
+    animation-delay: 0.6s;
+  }
+
+  .animate-pop {
+    animation: pop-in 0.7s ease-out both;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 20px 40px -30px var(--shadow);
+  }
+
+  .manga-dot {
+    background-image: radial-gradient(rgba(17, 24, 39, 0.15) 1px, transparent 0);
+    background-size: 14px 14px;
+  }
+
+  .manga-panel {
+    border: 2px solid #111827;
+    box-shadow: 8px 8px 0 #111827;
+  }
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes foil-sheen {
+  0%,
+  100% {
+    transform: translateX(-60%) rotate(8deg);
+  }
+  50% {
+    transform: translateX(60%) rotate(8deg);
+  }
 }

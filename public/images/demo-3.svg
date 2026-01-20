@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2ec4b6"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#g3)"/>
+  <rect x="40" y="40" width="200" height="200" fill="rgba(255,255,255,0.12)"/>
+  <rect x="280" y="120" width="280" height="220" fill="rgba(255,255,255,0.18)"/>
+  <text x="50%" y="52%" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" text-anchor="middle">ELITE BOX</text>
+</svg>

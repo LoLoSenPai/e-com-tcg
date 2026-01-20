@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff6b35"/>
+      <stop offset="100%" stop-color="#2ec4b6"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#g)"/>
+  <rect x="36" y="36" width="528" height="328" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.6"/>
+  <text x="50%" y="52%" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" text-anchor="middle">TCG DEMO ART</text>
+</svg>
