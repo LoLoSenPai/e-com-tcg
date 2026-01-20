@@ -27,7 +27,7 @@ export type OrderItem = {
 };
 
 export type Order = {
-  _id?: string;
+  _id?: string | import("mongodb").ObjectId;
   stripeSessionId: string;
   stripePaymentIntentId?: string;
   status: OrderStatus;

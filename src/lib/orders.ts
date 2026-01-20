@@ -31,7 +31,7 @@ export async function getOrderById(id: string) {
   if (!doc) {
     return null;
   }
-  return { ...doc, _id: String(doc._id) };
+  return { ...doc, _id: doc._id ? String(doc._id) : undefined };
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
@@ -43,7 +43,7 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   const doc = await db
     .collection<Order>(collectionName)
     .findOne({ _id: new ObjectId(id) });
-  return doc ? { ...doc, _id: String(doc._id) } : null;
+  return doc ? { ...doc, _id: doc._id ? String(doc._id) : undefined } : null;
 }
 
 export async function updateOrderFields(
@@ -61,7 +61,7 @@ export async function updateOrderFields(
   const doc = await db
     .collection<Order>(collectionName)
     .findOne({ _id: new ObjectId(id) });
-  return doc ? { ...doc, _id: String(doc._id) } : null;
+  return doc ? { ...doc, _id: doc._id ? String(doc._id) : undefined } : null;
 }
 
 export async function getOrderStats() {
