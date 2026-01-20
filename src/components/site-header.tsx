@@ -7,6 +7,7 @@ import { useCart } from "@/components/cart-context";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 
 const navLinks = [
+  { id: "home", href: "/", label: "Accueil" },
   { id: "catalog", href: "/catalog", label: "Catalogue" },
   { id: "categories", href: "/categories", label: "Categories" },
   { id: "about", href: "/about", label: "A propos" },
@@ -20,11 +21,14 @@ export function SiteHeader() {
   const router = useRouter();
 
   const activeTab = useMemo(() => {
-    if (!pathname) return "catalog";
+    if (!pathname) return "home";
+    if (pathname === "/") return "home";
     if (pathname.startsWith("/products")) return "catalog";
     if (pathname.startsWith("/categories")) return "categories";
-    const match = navLinks.find((link) => pathname.startsWith(link.href));
-    return match?.id ?? "catalog";
+    const match = navLinks
+      .filter((link) => link.href !== "/")
+      .find((link) => pathname.startsWith(link.href));
+    return match?.id ?? "home";
   }, [pathname]);
 
   return (
