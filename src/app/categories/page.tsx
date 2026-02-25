@@ -75,7 +75,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
                 ? `?franchise=${encodeURIComponent(selected)}`
                 : ""
             }`}
-            className="manga-panel manga-dot rounded-[28px] bg-white p-6 transition hover:-translate-y-1"
+            className="manga-panel manga-card manga-dot rounded-[28px] bg-white p-6"
           >
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
               Sous categorie
