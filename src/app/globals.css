@@ -14,6 +14,10 @@
   --accent-2: #2ec4b6;
   --accent-3: #ffbf69;
   --ring: oklch(0.708 0 0);
+  --glass-rgb: 255, 248, 239;
+  --glass-alpha: 0.75;
+  --glass-border-rgb: 19, 22, 35;
+  --glass-border-alpha: 0.08;
   --shadow: rgba(15, 23, 42, 0.08);
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -118,9 +122,11 @@
   }
 
   .glass {
-    background: rgba(255, 248, 239, 0.75);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(19, 22, 35, 0.08);
+    background: rgba(var(--glass-rgb), var(--glass-opacity, var(--glass-alpha)));
+    backdrop-filter: blur(var(--glass-blur, 16px));
+    border: 1px solid rgba(var(--glass-border-rgb), var(--glass-border-alpha));
+    box-shadow: var(--glass-shadow, none);
+    transition: background 0.25s ease, backdrop-filter 0.25s ease, box-shadow 0.25s ease;
   }
 
   .grid-spark {
@@ -256,6 +262,10 @@
   --accent-foreground: #e6edf8;
   --border: rgba(226, 232, 240, 0.2);
   --input: rgba(226, 232, 240, 0.18);
+  --glass-rgb: 20, 29, 48;
+  --glass-alpha: 0.78;
+  --glass-border-rgb: 226, 232, 240;
+  --glass-border-alpha: 0.18;
 }
 
 .theme-dark body {
@@ -270,11 +280,6 @@
 .theme-dark ::selection {
   background: rgba(255, 191, 105, 0.35);
   color: #0b1220;
-}
-
-.theme-dark .glass {
-  background: rgba(20, 29, 48, 0.78);
-  border-color: rgba(226, 232, 240, 0.18);
 }
 
 .theme-dark .grid-spark {

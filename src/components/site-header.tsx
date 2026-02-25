@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useCart } from "@/components/cart-context";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -91,6 +91,8 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const activeTab = useMemo(() => {
     if (!pathname) return "home";
@@ -108,6 +110,19 @@ export function SiteHeader() {
   }, [pathname]);
 
   useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setIsScrolled(y > 24);
+      setScrollProgress(Math.min(1, y / 120));
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!mobileOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -123,17 +138,61 @@ export function SiteHeader() {
     };
   }, [mobileOpen]);
 
+  const primaryCta = useMemo(() => {
+    if (pathname?.startsWith("/cart")) {
+      return { href: "/catalog", label: "Continuer" };
+    }
+    if (
+      pathname?.startsWith("/catalog") ||
+      pathname?.startsWith("/products") ||
+      pathname?.startsWith("/categories")
+    ) {
+      return { href: "/cart", label: "Voir panier" };
+    }
+    return { href: "/catalog", label: "Commander" };
+  }, [pathname]);
+
+  const headerGlassStyle = useMemo(
+    () =>
+      ({
+        "--glass-opacity": (0.72 + scrollProgress * 0.18).toFixed(3),
+        "--glass-blur": `${14 + scrollProgress * 10}px`,
+        "--glass-shadow": `0 ${4 + scrollProgress * 6}px ${20 + scrollProgress * 24}px -16px rgba(15, 23, 42, ${0.1 + scrollProgress * 0.18})`,
+      }) as CSSProperties,
+    [scrollProgress],
+  );
+
   return (
     <header className="sticky top-0 z-50">
-      <div className="glass border-b border-black/10">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+      <div className="glass border-b border-black/10" style={headerGlassStyle}>
+        <div
+          className={`mx-auto flex w-full max-w-6xl items-center justify-between transition-all duration-300 ${
+            isScrolled ? "px-4 py-2 sm:px-6 sm:py-2.5" : "px-4 py-3 sm:px-6 sm:py-4"
+          }`}
+        >
           <Link href="/" className="group flex items-center gap-2.5 md:gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-black text-sm text-white font-display shadow-soft md:h-10 md:w-10 md:text-lg">
+            <span
+              className={`grid place-items-center rounded-xl bg-black font-display text-white shadow-soft transition-all duration-300 ${
+                isScrolled
+                  ? "h-8 w-8 text-xs md:h-9 md:w-9 md:text-sm"
+                  : "h-9 w-9 text-sm md:h-10 md:w-10 md:text-lg"
+              }`}
+            >
               NT
             </span>
             <div className="leading-tight">
-              <p className="font-display text-base md:text-lg">Nebula TCG</p>
-              <p className="hidden text-xs text-slate-600 md:block">
+              <p
+                className={`font-display transition-all duration-300 ${
+                  isScrolled ? "text-sm md:text-base" : "text-base md:text-lg"
+                }`}
+              >
+                Nebula TCG
+              </p>
+              <p
+                className={`hidden text-xs text-slate-600 transition-opacity duration-300 md:block ${
+                  isScrolled ? "opacity-60" : "opacity-100"
+                }`}
+              >
                 Pokemon + One Piece
               </p>
             </div>
@@ -181,10 +240,12 @@ export function SiteHeader() {
               <ThemeToggle />
             </div>
             <Link
-              href="/catalog"
-              className="hidden cursor-pointer rounded-full bg-black px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 md:inline-flex"
+              href={primaryCta.href}
+              className={`hidden cursor-pointer rounded-full bg-black font-semibold text-white shadow-soft transition hover:-translate-y-0.5 md:inline-flex ${
+                isScrolled ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"
+              }`}
             >
-              Commander
+              {primaryCta.label}
             </Link>
             <button
               type="button"
@@ -277,7 +338,7 @@ export function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-xl bg-black px-3 py-2 text-center text-sm font-semibold text-white"
               >
-                Commander
+                {primaryCta.label}
               </Link>
             </div>
           </div>
