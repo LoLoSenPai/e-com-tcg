@@ -36,8 +36,14 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - Login: `/account/login`
 - Register: `/account/register`
 - Espace client: `/account`
+- Mot de passe oublie: `/account/forgot-password`
 
 ## Webhooks Stripe
 
 - Endpoint: `/api/stripe/webhook`
 - Ajoute `STRIPE_WEBHOOK_SECRET` dans `.env.local`
+- Event requis: `checkout.session.completed`
+- Test local (Stripe CLI):
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```

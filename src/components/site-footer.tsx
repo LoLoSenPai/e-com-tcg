@@ -35,6 +35,9 @@ export function SiteFooter() {
             <li>
               <Link href="/admin">Admin</Link>
             </li>
+            <li>
+              <Link href="/account">Compte client</Link>
+            </li>
           </ul>
         </div>
         <div>
@@ -48,6 +51,13 @@ export function SiteFooter() {
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+      <div className="border-t border-black/10">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-4 px-6 py-4 text-xs text-slate-500">
+          <Link href="/legal/mentions-legales">Mentions legales</Link>
+          <Link href="/legal/cgv">CGV</Link>
+          <Link href="/legal/confidentialite">Confidentialite</Link>
         </div>
       </div>
       <div className="border-t border-black/10 px-6 py-4 text-center text-xs text-slate-500">

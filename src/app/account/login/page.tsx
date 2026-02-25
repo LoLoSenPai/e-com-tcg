@@ -20,6 +20,11 @@ export default function AccountLoginPage() {
           Creer un compte
         </Link>
       </p>
+      <p className="mt-2 text-center text-sm text-slate-600">
+        <Link href="/account/forgot-password" className="font-semibold text-slate-900">
+          Mot de passe oublie
+        </Link>
+      </p>
     </main>
   );
 }

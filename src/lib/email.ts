@@ -8,7 +8,7 @@ function getResend() {
   return new Resend(key);
 }
 
-export async function sendOrderEmail({
+export async function sendEmail({
   to,
   subject,
   html,
@@ -25,4 +25,12 @@ export async function sendOrderEmail({
     subject,
     html,
   });
+}
+
+export async function sendOrderEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  return sendEmail(params);
 }

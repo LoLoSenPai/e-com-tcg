@@ -49,3 +49,8 @@ export async function updateCustomerById(
     .updateOne({ _id: new ObjectId(id) }, { $set: updates });
   return getCustomerById(id);
 }
+
+export async function updateCustomerPasswordById(id: string, passwordHash: string) {
+  const now = new Date().toISOString();
+  return updateCustomerById(id, { passwordHash, updatedAt: now });
+}
