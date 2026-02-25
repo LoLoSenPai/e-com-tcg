@@ -108,65 +108,65 @@ export default async function Home() {
         <div className="grid gap-6 md:grid-cols-2">
           <Link
             href="/catalog?franchise=Pokemon"
-            className="vibe-card vibe-card-pokemon manga-panel manga-card group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] p-10"
+            className="vibe-card vibe-card-pokemon manga-panel manga-card group relative flex min-h-[250px] items-start overflow-hidden rounded-[32px] p-6 sm:min-h-[260px] sm:p-8 md:items-center md:p-10"
           >
             <div className="absolute inset-0 opacity-60">
               <div className="vibe-glow absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/50 blur-2xl" />
               <div className="vibe-glow absolute bottom-6 left-8 h-16 w-32 rounded-full bg-white/40 blur-xl" />
             </div>
-            <div className="relative z-10 max-w-xs space-y-3">
+            <div className="relative z-10 max-w-[62%] space-y-2 sm:max-w-[60%] sm:space-y-3 md:max-w-xs">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                 Pokemon
               </p>
-              <h3 className="font-display text-3xl text-slate-900">
+              <h3 className="font-display text-2xl text-slate-900 sm:text-3xl">
                 Boosters &amp; etb legendaires
               </h3>
               <p className="text-sm text-slate-600">
                 Sets collectors, promos shiny et packs competitifs.
               </p>
-              <span className="inline-flex rounded-full bg-black px-4 py-2 text-xs font-semibold text-white">
+              <span className="inline-flex rounded-full bg-black px-3 py-2 text-[11px] font-semibold text-white sm:px-4 sm:text-xs">
                 Explorer Pokemon
               </span>
             </div>
-            <div className="pointer-events-none absolute -right-6 bottom-0 hidden h-[240px] w-[240px] md:block">
+            <div className="pointer-events-none absolute -right-4 bottom-0 h-[160px] w-[160px] sm:h-[195px] sm:w-[195px] md:-right-6 md:h-[240px] md:w-[240px]">
               <Image
                 src="/images/pokemon-cat.png"
                 alt="Pokemon"
                 fill
                 className="object-contain"
-                sizes="240px"
+                sizes="(max-width: 640px) 160px, (max-width: 768px) 195px, 240px"
               />
             </div>
           </Link>
           <Link
             href="/catalog?franchise=One%20Piece"
-            className="vibe-card vibe-card-onepiece manga-panel manga-card group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] p-10"
+            className="vibe-card vibe-card-onepiece manga-panel manga-card group relative flex min-h-[250px] items-start overflow-hidden rounded-[32px] p-6 sm:min-h-[260px] sm:p-8 md:items-center md:p-10"
           >
             <div className="absolute inset-0 opacity-60">
               <div className="vibe-glow absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/50 blur-2xl" />
               <div className="vibe-glow absolute bottom-6 left-10 h-16 w-32 rounded-full bg-white/40 blur-xl" />
             </div>
-            <div className="relative z-10 max-w-xs space-y-3">
+            <div className="relative z-10 max-w-[62%] space-y-2 sm:max-w-[60%] sm:space-y-3 md:max-w-xs">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                 One Piece
               </p>
-              <h3 className="font-display text-3xl text-slate-900">
+              <h3 className="font-display text-2xl text-slate-900 sm:text-3xl">
                 Coffrets &amp; displays pirates
               </h3>
               <p className="text-sm text-slate-600">
                 Drops de la Grand Line, boosters et accessoires premium.
               </p>
-              <span className="inline-flex rounded-full bg-black px-4 py-2 text-xs font-semibold text-white">
+              <span className="inline-flex rounded-full bg-black px-3 py-2 text-[11px] font-semibold text-white sm:px-4 sm:text-xs">
                 Explorer One Piece
               </span>
             </div>
-            <div className="pointer-events-none absolute -right-4 bottom-0 hidden h-[250px] w-[250px] md:block">
+            <div className="pointer-events-none absolute -right-2 bottom-0 h-[158px] w-[158px] sm:h-[200px] sm:w-[200px] md:-right-4 md:h-[250px] md:w-[250px]">
               <Image
                 src="/images/onepiece-cat.png"
                 alt="One Piece"
                 fill
                 className="object-contain"
-                sizes="250px"
+                sizes="(max-width: 640px) 158px, (max-width: 768px) 200px, 250px"
               />
             </div>
           </Link>

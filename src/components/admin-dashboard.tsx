@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
+import { categories as defaultCategories } from "@/lib/sample-data";
 
 type FormState = {
   name: string;
@@ -34,6 +35,8 @@ export function AdminDashboard() {
   const showDevTools = process.env.NODE_ENV !== "production";
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
@@ -73,12 +76,23 @@ export function AdminDashboard() {
     );
   }, [products, search]);
 
+  const categoryOptions = useMemo(() => {
+    const fromProducts = products.map((product) => product.category.trim());
+    const unique = new Set<string>([...defaultCategories, ...fromProducts]);
+    if (form.category.trim()) {
+      unique.add(form.category.trim());
+    }
+    return [...unique].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [products, form.category]);
+
   function handleEdit(product: Product) {
     const fallbackFranchise =
       product.franchise ||
       (product.tags?.includes("One Piece") ? "One Piece" : "Pokemon");
     setEditingSlug(product.slug);
     setEditingId(product._id ?? null);
+    setIsNewCategory(false);
+    setNewCategory("");
     setForm({
       name: product.name,
       slug: product.slug,
@@ -96,6 +110,8 @@ export function AdminDashboard() {
   function handleReset() {
     setEditingSlug(null);
     setEditingId(null);
+    setIsNewCategory(false);
+    setNewCategory("");
     setForm(emptyForm);
   }
 
@@ -103,8 +119,17 @@ export function AdminDashboard() {
     event.preventDefault();
     setLoading(true);
     setStatus("");
+    const resolvedCategory = (
+      isNewCategory ? newCategory : form.category
+    ).trim();
+    if (!resolvedCategory) {
+      setStatus("Choisis une categorie ou cree-en une nouvelle.");
+      setLoading(false);
+      return;
+    }
     const payload = {
       ...form,
+      category: resolvedCategory,
       price: Number(form.price),
       stock: form.stock ? Number(form.stock) : undefined,
     };
@@ -370,15 +395,45 @@ export function AdminDashboard() {
               className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
             />
           <div className="grid gap-3 md:grid-cols-2">
-            <input
-              value={form.category}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, category: event.target.value }))
-              }
-              placeholder="Categorie"
-              required
-              className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
-            />
+            <div className="grid gap-2">
+              {isNewCategory ? (
+                <input
+                  value={newCategory}
+                  onChange={(event) => setNewCategory(event.target.value)}
+                  placeholder="Nouvelle categorie"
+                  required
+                  className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+                />
+              ) : (
+                <select
+                  value={form.category}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  required
+                  className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+                >
+                  <option value="" disabled>
+                    Choisir une categorie
+                  </option>
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNewCategory((prev) => !prev);
+                  setNewCategory("");
+                }}
+                className="w-fit rounded-full border-2 border-black px-3 py-1 text-xs font-semibold"
+              >
+                {isNewCategory ? "Choisir existante" : "Nouvelle categorie"}
+              </button>
+            </div>
             <select
               value={form.franchise}
               onChange={(event) =>
