@@ -4,12 +4,34 @@ import { getProductBySlug, getProducts } from "@/lib/products";
 import { formatPrice } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductCard } from "@/components/product-card";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+  if (!product) {
+    return {
+      title: "Produit introuvable - Nebula TCG",
+    };
+  }
+  return {
+    title: `${product.name} - Nebula TCG`,
+    description: product.description,
+    openGraph: {
+      title: `${product.name} - Nebula TCG`,
+      description: product.description,
+      images: product.image ? [product.image] : undefined,
+    },
+  };
+}
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
@@ -25,6 +47,29 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description,
+            image: product.image
+              ? [new URL(product.image, process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").toString()]
+              : undefined,
+            offers: {
+              "@type": "Offer",
+              priceCurrency: "EUR",
+              price: (product.price / 100).toFixed(2),
+              availability:
+                (product.stock ?? 0) > 0
+                  ? "https://schema.org/InStock"
+                  : "https://schema.org/OutOfStock",
+            },
+          }),
+        }}
+      />
       <Link
         href="/catalog"
         className="text-sm font-semibold text-slate-500"

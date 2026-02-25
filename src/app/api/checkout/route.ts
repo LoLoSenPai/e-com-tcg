@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getProductsBySlugs } from "@/lib/products";
 import { getStripe } from "@/lib/stripe";
+import { getCustomerFromRequest } from "@/lib/customer-auth";
 
 type CartItem = {
   slug: string;
   quantity: number;
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let body: { items?: CartItem[] };
   try {
     body = await request.json();
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
   }
 
   const stripe = getStripe();
+  const customer = await getCustomerFromRequest(request);
   const origin =
     request.headers.get("origin") ||
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -70,6 +72,30 @@ export async function POST(request: Request) {
     line_items: lineItems,
     success_url: `${origin}/cart?success=1`,
     cancel_url: `${origin}/cart?cancel=1`,
+    customer_email: customer?.email || undefined,
+    metadata: customer?._id ? { customerId: customer._id } : undefined,
+    shipping_options: [
+      {
+        shipping_rate_data: {
+          display_name: "Livraison standard",
+          fixed_amount: { amount: 490, currency: "eur" },
+          delivery_estimate: {
+            minimum: { unit: "business_day", value: 2 },
+            maximum: { unit: "business_day", value: 5 },
+          },
+        },
+      },
+      {
+        shipping_rate_data: {
+          display_name: "Livraison express",
+          fixed_amount: { amount: 990, currency: "eur" },
+          delivery_estimate: {
+            minimum: { unit: "business_day", value: 1 },
+            maximum: { unit: "business_day", value: 2 },
+          },
+        },
+      },
+    ],
     shipping_address_collection: {
       allowed_countries: ["FR", "BE", "CH", "LU"],
     },

@@ -2,8 +2,13 @@ import { getProducts } from "@/lib/products";
 import { categories, franchises } from "@/lib/sample-data";
 import { CatalogClient } from "@/components/catalog-client";
 import type { Product } from "@/lib/types";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Catalogue - Nebula TCG",
+  description: "Parcours le catalogue complet Pokemon et One Piece.",
+};
 
 type CatalogPageProps = {
   searchParams: Promise<{ franchise?: string }>;

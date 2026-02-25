@@ -88,7 +88,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (status === "shipped" && updated.customerEmail) {
+  if (payload.status === "shipped" && updated.customerEmail) {
     try {
       await sendOrderEmail({
         to: updated.customerEmail,

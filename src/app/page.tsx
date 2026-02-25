@@ -2,8 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { getProducts } from "@/lib/products";
 import { ProductCard } from "@/components/product-card";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Nebula TCG - Accueil",
+  description:
+    "Decouvre les meilleurs produits Pokemon et One Piece TCG, avec drops et offres exclusives.",
+};
 
 export default async function Home() {
   const products = await getProducts();

@@ -21,6 +21,23 @@ export const metadata: Metadata = {
   title: "Nebula TCG - Boutique cartes Pokemon & One Piece",
   description:
     "Boutique TCG moderne avec produits Pokemon et One Piece, drops reguliers, protections premium et coffrets collectors.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ),
+  openGraph: {
+    title: "Nebula TCG - Boutique cartes Pokemon & One Piece",
+    description:
+      "Boutique TCG moderne avec produits Pokemon et One Piece, drops reguliers, protections premium et coffrets collectors.",
+    type: "website",
+    locale: "fr_FR",
+    siteName: "Nebula TCG",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nebula TCG - Boutique cartes Pokemon & One Piece",
+    description:
+      "Boutique TCG moderne avec produits Pokemon et One Piece, drops reguliers, protections premium et coffrets collectors.",
+  },
 };
 
 export default function RootLayout({

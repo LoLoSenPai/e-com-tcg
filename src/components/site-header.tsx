@@ -61,12 +61,18 @@ export function SiteHeader() {
 
           <div className="flex items-center gap-3">
             <Link
+              href="/account"
+              className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold shadow-soft transition hover:-translate-y-0.5"
+            >
+              Compte
+            </Link>
+            <Link
               href="/cart"
               className="relative rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold shadow-soft transition hover:-translate-y-0.5"
             >
               Panier
               {totalItems > 0 ? (
-                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[var(--accent)] text-xs text-white">
+                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-white bg-black text-xs font-bold text-white shadow">
                   {totalItems}
                 </span>
               ) : null}

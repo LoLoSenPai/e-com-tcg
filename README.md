@@ -20,6 +20,7 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `ADMIN_TOKEN`
+- `CUSTOMER_SESSION_SECRET` (session compte client)
 - `NEXT_PUBLIC_SITE_URL` (optionnel en dev)
 - `RESEND_API_KEY` (email)
 - `EMAIL_FROM` (email)
@@ -29,6 +30,12 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - Page login: `/admin/login`
 - Produits: `/admin` (CRUD produits, upload image, seed, migration)
 - Commandes: `/admin/orders`
+
+## Compte client
+
+- Login: `/account/login`
+- Register: `/account/register`
+- Espace client: `/account`
 
 ## Webhooks Stripe
 

@@ -140,6 +140,8 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           </p>
           <div className="mt-3 text-sm text-slate-700">
             <p>Montant: {formatPrice(order.amountTotal)}</p>
+            <p>Livraison: {formatPrice(order.shippingAmount || 0)}</p>
+            <p>Methode: {order.shippingRateLabel || "-"}</p>
             <p>Devise: {order.currency.toUpperCase()}</p>
             <p>Stripe PI: {order.stripePaymentIntentId || "-"}</p>
             <p>Creer: {new Date(order.createdAt).toLocaleString("fr-FR")}</p>

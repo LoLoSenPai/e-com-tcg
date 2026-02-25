@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
@@ -13,6 +14,9 @@ export default async function AdminOrdersPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16">
       <div className="mb-8 space-y-3">
+        <Link href="/admin" className="text-sm text-slate-500">
+          - Retour dashboard
+        </Link>
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
           Orders
         </p>

@@ -285,16 +285,31 @@ export function AdminDashboard() {
                 className="manga-panel rounded-[24px] bg-white p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      {product.category}
-                    </p>
-                    <p className="font-semibold text-slate-900">
-                      {product.name}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {formatPrice(product.price)}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-16 w-12 overflow-hidden rounded-lg border border-black/10 bg-slate-100">
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-[10px] text-slate-400">
+                          no img
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        {product.category}
+                      </p>
+                      <p className="font-semibold text-slate-900">
+                        {product.name}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {formatPrice(product.price)}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button

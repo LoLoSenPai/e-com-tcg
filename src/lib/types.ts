@@ -27,11 +27,14 @@ export type OrderItem = {
 };
 
 export type Order = {
-  _id?: string | import("mongodb").ObjectId;
+  _id?: string;
   stripeSessionId: string;
   stripePaymentIntentId?: string;
+  customerId?: string;
   status: OrderStatus;
   amountTotal: number;
+  shippingAmount?: number;
+  shippingRateLabel?: string;
   currency: string;
   customerEmail?: string;
   customerName?: string;
@@ -51,6 +54,24 @@ export type Order = {
   };
   shippedAt?: string;
   items: OrderItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Customer = {
+  _id?: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  passwordHash: string;
+  defaultAddress?: {
+    line1?: string;
+    line2?: string;
+    postalCode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
   createdAt: string;
   updatedAt: string;
 };

@@ -2,8 +2,14 @@ import Link from "next/link";
 import { categories, franchises } from "@/lib/sample-data";
 import type { Product } from "@/lib/types";
 import { getProducts } from "@/lib/products";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Categories - Nebula TCG",
+  description:
+    "Explore les categories de produits Pokemon et One Piece sur Nebula TCG.",
+};
 
 type CategoriesPageProps = {
   searchParams: Promise<{ franchise?: string }>;

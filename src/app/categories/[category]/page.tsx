@@ -3,6 +3,7 @@ import { categories, franchises } from "@/lib/sample-data";
 import { getProducts } from "@/lib/products";
 import { ProductCard } from "@/components/product-card";
 import type { Product } from "@/lib/types";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,17 @@ type CategoryPageProps = {
   params: Promise<{ category: string }>;
   searchParams: Promise<{ franchise?: string }>;
 };
+
+export async function generateMetadata({
+  params,
+}: CategoryPageProps): Promise<Metadata> {
+  const { category } = await params;
+  const decoded = decodeURIComponent(category);
+  return {
+    title: `${decoded} - Nebula TCG`,
+    description: `Decouvre tous les produits ${decoded} sur Nebula TCG.`,
+  };
+}
 
 function filterByFranchise(products: Product[], franchise?: string) {
   if (!franchise || franchise === "Tous") return products;

@@ -49,11 +49,25 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
+    let shippingRateLabel: string | undefined;
+    if (session.shipping_cost?.shipping_rate) {
+      try {
+        const rate = await stripe.shippingRates.retrieve(
+          session.shipping_cost.shipping_rate.toString(),
+        );
+        shippingRateLabel = rate.display_name || undefined;
+      } catch {
+        shippingRateLabel = undefined;
+      }
+    }
     await createOrder({
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent?.toString(),
+      customerId: session.metadata?.customerId || undefined,
       status: "paid",
       amountTotal: session.amount_total || 0,
+      shippingAmount: session.total_details?.amount_shipping || 0,
+      shippingRateLabel,
       currency: session.currency || "eur",
       customerEmail: session.customer_details?.email || undefined,
       customerName: session.customer_details?.name || undefined,
