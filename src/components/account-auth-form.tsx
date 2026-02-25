@@ -52,25 +52,31 @@ export function AccountAuthForm({ mode }: AccountAuthFormProps) {
       </p>
       {mode === "register" ? (
         <input
+          name="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Nom"
+          autoComplete="name"
           className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
         />
       ) : null}
       <input
+        name="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         placeholder="Email"
         type="email"
+        autoComplete="email"
         required
         className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
       />
       <input
+        name="password"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         placeholder="Mot de passe"
         type="password"
+        autoComplete={mode === "login" ? "current-password" : "new-password"}
         required
         className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
       />

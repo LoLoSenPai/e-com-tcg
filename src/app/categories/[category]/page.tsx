@@ -69,7 +69,7 @@ export default async function CategoryPage({
         ))}
       </div>
       {filtered.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-black/10 bg-white p-6 text-center text-sm text-slate-500">
+        <div className="manga-panel mt-6 rounded-2xl bg-white p-6 text-center text-sm text-slate-500">
           Aucun produit disponible pour le moment.
         </div>
       ) : null}

@@ -5,6 +5,23 @@ import { CartProvider } from "@/components/cart-context";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
+const themeInitScript = `(() => {
+  try {
+    const storageKey = "nebula-theme";
+    const stored = window.localStorage.getItem(storageKey);
+    const theme =
+      stored === "light" || stored === "dark"
+        ? stored
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+    const root = document.documentElement;
+    root.classList.remove("theme-light", "theme-dark");
+    root.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
+    root.style.colorScheme = theme;
+  } catch {}
+})();`;
+
 const display = Bungee({
   weight: "400",
   variable: "--font-display",
@@ -46,8 +63,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" suppressHydrationWarning>
       <body className={`${body.variable} ${display.variable} antialiased`}>
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+          suppressHydrationWarning
+        />
         <CartProvider>
           <div className="min-h-screen">
             <SiteHeader />

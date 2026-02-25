@@ -42,17 +42,17 @@ export function CatalogClient({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="manga-panel manga-dot flex flex-wrap items-center justify-between gap-4 rounded-[28px] bg-white p-4">
         <div className="flex flex-wrap gap-2">
           {franchises.map((franchise) => (
             <button
               key={franchise}
               type="button"
               onClick={() => setActiveFranchise(franchise)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
                 activeFranchise === franchise
-                  ? "bg-black text-white"
-                  : "bg-white text-slate-600"
+                  ? "bg-black text-white shadow-[3px_3px_0_#ffbf69]"
+                  : "bg-white text-slate-600 hover:-translate-y-0.5"
               }`}
             >
               {franchise}
@@ -65,10 +65,10 @@ export function CatalogClient({
               key={category}
               type="button"
               onClick={() => setActiveCategory(category)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
                 activeCategory === category
-                  ? "bg-black text-white"
-                  : "bg-white text-slate-600"
+                  ? "bg-black text-white shadow-[3px_3px_0_#2ec4b6]"
+                  : "bg-white text-slate-600 hover:-translate-y-0.5"
               }`}
             >
               {category}
@@ -79,7 +79,7 @@ export function CatalogClient({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Rechercher un produit..."
-          className="w-full max-w-xs rounded-full border border-black/10 bg-white px-4 py-2 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          className="w-full max-w-xs rounded-full border-2 border-black bg-white px-4 py-2 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -88,7 +88,7 @@ export function CatalogClient({
         ))}
       </div>
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-black/10 bg-white p-6 text-center text-sm text-slate-500">
+        <div className="manga-panel rounded-2xl bg-white p-6 text-center text-sm text-slate-500">
           Aucun produit dans cette selection.
         </div>
       ) : null}

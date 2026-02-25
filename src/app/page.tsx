@@ -17,7 +17,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 pb-20">
-      <section className="relative mt-10 grid gap-10 overflow-hidden rounded-[36px] border border-black/10 bg-[var(--surface)] p-10 shadow-soft md:grid-cols-[1.1fr_0.9fr]">
+      <section className="manga-panel manga-dot relative mt-10 grid gap-10 overflow-hidden rounded-[36px] bg-[var(--surface)] p-10 md:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Nouveau drop <span className="text-[var(--accent)]">TCG</span>
@@ -63,7 +63,7 @@ export default async function Home() {
         <div className="relative grid gap-4">
           <div className="grid-spark absolute inset-0 rounded-3xl opacity-60" />
           <div className="relative z-10 grid gap-4">
-            <div className="animate-float rounded-3xl border border-black/10 bg-white p-4 shadow-soft">
+            <div className="manga-panel animate-float rounded-3xl bg-white p-4">
               <p className="text-xs text-slate-400">Drop du mois</p>
               <p className="mt-1 font-semibold text-slate-900">
                 Display Gear 5 Storm
@@ -72,7 +72,7 @@ export default async function Home() {
                 24 boosters One Piece edition limitee
               </p>
             </div>
-            <div className="animate-float-delayed rounded-3xl border border-black/10 bg-[var(--surface-strong)] p-4 shadow-soft">
+            <div className="manga-panel animate-float-delayed rounded-3xl bg-[var(--surface-strong)] p-4">
               <p className="text-xs text-slate-400">Focus</p>
               <p className="mt-1 font-semibold text-slate-900">
                 Elite Trainer Box Luffy
@@ -81,7 +81,7 @@ export default async function Home() {
                 Accessoires premium + sleeves holo
               </p>
             </div>
-            <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-soft">
+            <div className="manga-panel rounded-3xl bg-white p-4">
               <p className="text-xs text-slate-400">Protection</p>
               <p className="mt-1 font-semibold text-slate-900">
                 Hyper Shield Series
@@ -108,11 +108,11 @@ export default async function Home() {
         <div className="grid gap-6 md:grid-cols-2">
           <Link
             href="/catalog?franchise=Pokemon"
-            className="group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] border border-black/10 bg-[linear-gradient(120deg,#fff2de,#ffbf69)] p-10 shadow-soft transition hover:-translate-y-1"
+            className="vibe-card vibe-card-pokemon manga-panel manga-card group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] p-10"
           >
             <div className="absolute inset-0 opacity-60">
-              <div className="absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/50 blur-2xl" />
-              <div className="absolute bottom-6 left-8 h-16 w-32 rounded-full bg-white/40 blur-xl" />
+              <div className="vibe-glow absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/50 blur-2xl" />
+              <div className="vibe-glow absolute bottom-6 left-8 h-16 w-32 rounded-full bg-white/40 blur-xl" />
             </div>
             <div className="relative z-10 max-w-xs space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
@@ -140,11 +140,11 @@ export default async function Home() {
           </Link>
           <Link
             href="/catalog?franchise=One%20Piece"
-            className="group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] border border-black/10 bg-[linear-gradient(120deg,#e3f7f5,#2ec4b6)] p-10 shadow-soft transition hover:-translate-y-1"
+            className="vibe-card vibe-card-onepiece manga-panel manga-card group relative flex min-h-[260px] items-center overflow-hidden rounded-[32px] p-10"
           >
             <div className="absolute inset-0 opacity-60">
-              <div className="absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/50 blur-2xl" />
-              <div className="absolute bottom-6 left-10 h-16 w-32 rounded-full bg-white/40 blur-xl" />
+              <div className="vibe-glow absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/50 blur-2xl" />
+              <div className="vibe-glow absolute bottom-6 left-10 h-16 w-32 rounded-full bg-white/40 blur-xl" />
             </div>
             <div className="relative z-10 max-w-xs space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
@@ -189,7 +189,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-16 grid gap-8 rounded-[32px] border border-black/10 bg-white p-10 shadow-soft md:grid-cols-[1fr_1.1fr]">
+      <section className="manga-panel manga-dot mt-16 grid gap-8 rounded-[32px] bg-white p-10 md:grid-cols-[1fr_1.1fr]">
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
             Experience
@@ -211,7 +211,7 @@ export default async function Home() {
           {["Legendary", "Mythique", "Shiny", "Treasure"].map((label) => (
             <div
               key={label}
-              className="animate-pop rounded-3xl border border-black/10 bg-[var(--surface)] p-5 text-sm text-slate-600 shadow-soft"
+              className="manga-panel animate-pop rounded-3xl bg-[var(--surface)] p-5 text-sm text-slate-600"
             >
               <p className="font-display text-lg text-slate-900">{label}</p>
               <p className="mt-2">
@@ -222,7 +222,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="mt-16 grid gap-6 rounded-[32px] border border-black/10 bg-[var(--surface)] p-10 shadow-soft md:grid-cols-[1.2fr_0.8fr]">
+      <section className="manga-panel manga-dot mt-16 grid gap-6 rounded-[32px] bg-[var(--surface)] p-10 md:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <h3 className="font-display text-3xl text-slate-900">
             Pret pour l&apos;opening party ?
@@ -232,14 +232,14 @@ export default async function Home() {
             les alertes avant tout le monde.
           </p>
         </div>
-        <div className="flex flex-col gap-3 md:flex-row">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <input
             placeholder="Ton email"
-            className="flex-1 rounded-full border border-black/10 bg-white px-4 py-3 text-sm"
+            className="w-full rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm md:w-[220px]"
           />
           <button
             type="button"
-            className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white"
+            className="rounded-full bg-black px-5 py-2.5 text-xs font-semibold text-white md:whitespace-nowrap"
           >
             Je m&apos;inscris
           </button>

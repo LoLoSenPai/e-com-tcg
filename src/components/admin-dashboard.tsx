@@ -31,6 +31,7 @@ const emptyForm: FormState = {
 };
 
 export function AdminDashboard() {
+  const showDevTools = process.env.NODE_ENV !== "production";
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
@@ -239,22 +240,26 @@ export function AdminDashboard() {
           >
             Orders
           </a>
-          <button
-            type="button"
-            onClick={handleSeed}
-            disabled={loading}
-            className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
-          >
-            Seed demo
-          </button>
-          <button
-            type="button"
-            onClick={handleMigrateFranchise}
-            disabled={loading}
-            className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
-          >
-            Migrer franchise
-          </button>
+          {showDevTools ? (
+            <button
+              type="button"
+              onClick={handleSeed}
+              disabled={loading}
+              className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
+            >
+              Seed demo
+            </button>
+          ) : null}
+          {showDevTools ? (
+            <button
+              type="button"
+              onClick={handleMigrateFranchise}
+              disabled={loading}
+              className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
+            >
+              Migrer franchise
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleLogout}

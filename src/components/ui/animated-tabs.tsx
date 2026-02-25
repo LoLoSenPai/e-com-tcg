@@ -41,7 +41,7 @@ export function AnimatedTabs({
           key={tab.id}
           onClick={() => handleTabChange(tab.id)}
           className={`
-            relative rounded-full px-4 py-2 text-sm font-semibold
+            relative cursor-pointer rounded-full px-4 py-2 text-sm font-semibold
             text-slate-700 transition
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/40
             ${activeTab === tab.id ? "text-white" : "hover:text-black"}

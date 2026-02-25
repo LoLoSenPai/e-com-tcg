@@ -175,6 +175,24 @@
     border: 2px solid #111827;
     box-shadow: 8px 8px 0 #111827;
   }
+
+  .vibe-card-pokemon {
+    background: linear-gradient(120deg, #fff2de, #ffbf69);
+  }
+
+  .vibe-card-onepiece {
+    background: linear-gradient(120deg, #e3f7f5, #2ec4b6);
+  }
+
+  .manga-card {
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    will-change: transform;
+  }
+
+  .manga-card:hover {
+    transform: translate(8px, 8px);
+    box-shadow: 0 0 0 #111827;
+  }
 }
 
 @keyframes floaty {
@@ -206,6 +224,154 @@
   50% {
     transform: translateX(60%) rotate(8deg);
   }
+}
+
+:root.theme-light {
+  color-scheme: light;
+}
+
+:root.theme-dark {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --ink: #e6edf8;
+  --surface: #141d30;
+  --surface-strong: #1c2943;
+  --accent: #1f2d45;
+  --accent-2: #45d6c8;
+  --accent-3: #ffbf69;
+  --ring: #ffbf69;
+  --shadow: rgba(2, 8, 23, 0.72);
+  --background: #0b1220;
+  --foreground: #e6edf8;
+  --card: #141d30;
+  --card-foreground: #e6edf8;
+  --popover: #141d30;
+  --popover-foreground: #e6edf8;
+  --primary: #f8fafc;
+  --primary-foreground: #0b1220;
+  --secondary: #1f2d45;
+  --secondary-foreground: #e6edf8;
+  --muted: #1c2943;
+  --muted-foreground: #9fb0cb;
+  --accent-foreground: #e6edf8;
+  --border: rgba(226, 232, 240, 0.2);
+  --input: rgba(226, 232, 240, 0.18);
+}
+
+.theme-dark body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 191, 105, 0.2), transparent 48%),
+    radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.18), transparent 42%),
+    radial-gradient(circle at 22% 72%, rgba(255, 107, 53, 0.14), transparent 52%),
+    var(--bg);
+  color: var(--ink);
+}
+
+.theme-dark ::selection {
+  background: rgba(255, 191, 105, 0.35);
+  color: #0b1220;
+}
+
+.theme-dark .glass {
+  background: rgba(20, 29, 48, 0.78);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+.theme-dark .grid-spark {
+  background-image:
+    linear-gradient(120deg, rgba(226, 232, 240, 0.12) 0, rgba(226, 232, 240, 0.12) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(226, 232, 240, 0.08) 0, rgba(226, 232, 240, 0.08) 1px, transparent 1px);
+}
+
+.theme-dark .shadow-soft {
+  box-shadow: 0 24px 44px -30px rgba(2, 8, 23, 0.9);
+}
+
+.theme-dark .manga-dot {
+  background-image: radial-gradient(rgba(226, 232, 240, 0.16) 1px, transparent 0);
+}
+
+.theme-dark .manga-panel {
+  border-color: #e2e8f0;
+  box-shadow: 8px 8px 0 #ffbf69;
+}
+
+.theme-dark .vibe-card-pokemon {
+  background: linear-gradient(120deg, #3d1f12, #b35b1d);
+}
+
+.theme-dark .vibe-card-onepiece {
+  background: linear-gradient(120deg, #103040, #1ea79f);
+}
+
+.theme-dark .vibe-card {
+  filter: saturate(1.14) contrast(1.05);
+}
+
+.theme-dark .vibe-card .vibe-glow {
+  opacity: 0.12;
+}
+
+.theme-dark .manga-card:hover {
+  box-shadow: 0 0 0 #ffbf69;
+}
+
+.theme-dark .card-foil::after {
+  background: linear-gradient(
+    120deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.25) 56%,
+    transparent 70%
+  );
+}
+
+.theme-dark .bg-white {
+  background-color: var(--surface) !important;
+}
+
+.theme-dark .bg-slate-100 {
+  background-color: #1f2d45 !important;
+}
+
+.theme-dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.theme-dark .text-slate-700 {
+  color: #d8e2f1 !important;
+}
+
+.theme-dark .text-slate-600 {
+  color: #c5d2e7 !important;
+}
+
+.theme-dark .text-slate-500 {
+  color: #acbdd7 !important;
+}
+
+.theme-dark .text-slate-400 {
+  color: #93a8c6 !important;
+}
+
+.theme-dark .border-black\/10 {
+  border-color: rgba(226, 232, 240, 0.22) !important;
+}
+
+.theme-dark .border-black {
+  border-color: #e2e8f0 !important;
+}
+
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+  border-color: rgba(226, 232, 240, 0.24);
+  background-color: var(--surface-strong);
+  color: var(--ink);
+}
+
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #8ea3c2;
 }
 
 .dark {

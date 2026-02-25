@@ -12,7 +12,7 @@ export default function ContactPage() {
           Ecris-nous, on repond en moins de 24h.
         </p>
       </div>
-      <form className="grid gap-4 rounded-[32px] border border-black/10 bg-white p-6 shadow-soft">
+      <form className="manga-panel manga-dot grid gap-4 rounded-[32px] bg-white p-6">
         <div className="grid gap-3 md:grid-cols-2">
           <input
             placeholder="Prenom"

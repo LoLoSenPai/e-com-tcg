@@ -10,7 +10,7 @@ export default function AboutPage() {
         </h1>
       </div>
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="space-y-4 text-sm text-slate-600">
+        <div className="manga-panel manga-dot rounded-[32px] bg-white p-6 text-sm text-slate-600">
           <p>
             Nebula TCG est nee pour offrir une experience d'achat aussi
             excitante que l'opening lui-meme. On selectionne chaque drop pour
@@ -21,7 +21,7 @@ export default function AboutPage() {
             et des conseils pour preserver tes cartes.
           </p>
         </div>
-        <div className="rounded-[32px] border border-black/10 bg-white p-6 shadow-soft">
+        <div className="manga-panel manga-dot rounded-[32px] bg-white p-6">
           <p className="font-display text-2xl text-slate-900">
             Nos engagements
           </p>

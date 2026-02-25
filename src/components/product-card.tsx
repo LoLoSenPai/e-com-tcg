@@ -12,9 +12,9 @@ export function ProductCard({ product }: ProductCardProps) {
   const franchiseLabel = product.franchise || product.tags?.[0];
 
   return (
-    <div className="card-foil group rounded-3xl border border-black/10 bg-white p-5 shadow-soft transition hover:-translate-y-1">
+    <div className="card-foil manga-panel manga-card manga-dot group rounded-[28px] bg-white p-5">
       <div className="flex items-start justify-between gap-2">
-        <span className="rounded-full bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold text-slate-700">
+        <span className="rounded-full border border-black/10 bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold text-slate-700">
           {product.category}
         </span>
         {product.badge ? (
@@ -30,7 +30,7 @@ export function ProductCard({ product }: ProductCardProps) {
       ) : null}
       <Link href={`/products/${product.slug}`}>
         <div
-          className="mt-6 grid aspect-[3/4] place-items-center rounded-2xl bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600"
+          className="manga-dot mt-6 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600"
           style={
             product.image
               ? {

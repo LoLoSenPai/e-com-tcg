@@ -36,10 +36,12 @@ export default function ForgotPasswordPage() {
         className="manga-panel manga-dot mx-auto grid w-full max-w-md gap-4 rounded-[28px] bg-white p-6"
       >
         <input
+          name="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="Email"
           type="email"
+          autoComplete="email"
           required
           className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
         />

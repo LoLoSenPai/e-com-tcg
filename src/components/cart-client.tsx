@@ -67,7 +67,7 @@ export function CartClient({ products }: CartClientProps) {
             Paiement annule. Ton panier est toujours la.
           </div>
         ) : null}
-        <div className="rounded-2xl border border-dashed border-black/10 bg-white p-10 text-center">
+        <div className="manga-panel rounded-2xl bg-white p-10 text-center">
           <p className="text-sm text-slate-600">
             Ton panier est vide. Ajoute des boosters et coffrets !
           </p>
@@ -93,7 +93,7 @@ export function CartClient({ products }: CartClientProps) {
           {lines.map((line) => (
             <div
               key={line.item.slug}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/10 bg-white p-4 shadow-soft"
+              className="manga-panel flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white p-4"
             >
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-wide text-slate-400">
@@ -140,7 +140,7 @@ export function CartClient({ products }: CartClientProps) {
         ))}
       </div>
 
-        <div className="space-y-4 rounded-3xl border border-black/10 bg-white p-6 shadow-soft">
+        <div className="manga-panel manga-dot space-y-4 rounded-3xl bg-white p-6">
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-600">Sous-total</span>
           <span className="font-semibold">{formatPrice(subtotal)}</span>
