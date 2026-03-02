@@ -18,8 +18,8 @@ export async function generateMetadata({
   const { category } = await params;
   const decoded = decodeURIComponent(category);
   return {
-    title: `${decoded} - Nebula TCG`,
-    description: `Decouvre tous les produits ${decoded} sur Nebula TCG.`,
+    title: `${decoded} - Returners`,
+    description: `Decouvre tous les produits ${decoded} sur Returners.`,
   };
 }
 
@@ -40,7 +40,7 @@ export default async function CategoryPage({
   const paramsSearch = await searchParams;
   const selected =
     paramsSearch.franchise &&
-    franchises.includes(paramsSearch.franchise as (typeof franchises)[number])
+      franchises.includes(paramsSearch.franchise as (typeof franchises)[number])
       ? paramsSearch.franchise
       : "Tous";
   const decoded = decodeURIComponent(category);

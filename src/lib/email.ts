@@ -17,7 +17,7 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
-  const from = process.env.EMAIL_FROM || "Nebula TCG <no-reply@nebula-tcg.com>";
+  const from = process.env.EMAIL_FROM || "Returners <no-reply@returners.com>";
   const resend = getResend();
   await resend.emails.send({
     from,

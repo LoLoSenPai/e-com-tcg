@@ -1,4 +1,4 @@
-# Nebula TCG
+# Returners
 
 Boutique e-commerce TCG (Pokemon + One Piece) en Next.js avec Stripe et MongoDB.
 
@@ -44,6 +44,7 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - Ajoute `STRIPE_WEBHOOK_SECRET` dans `.env.local`
 - Event requis: `checkout.session.completed`
 - Test local (Stripe CLI):
+
 ```bash
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```

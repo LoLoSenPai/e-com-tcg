@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "CGV - Nebula TCG",
-  description: "Conditions generales de vente Nebula TCG.",
+  title: "CGV - Returners",
+  description: "Conditions generales de vente Returners.",
 };
 
 export default function CgvPage() {

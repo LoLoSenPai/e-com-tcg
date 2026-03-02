@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Nebula TCG - Accueil",
+  title: "Returners - Accueil",
   description:
     "Decouvre les meilleurs produits Pokemon et One Piece TCG, avec drops et offres exclusives.",
 };

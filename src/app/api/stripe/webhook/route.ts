@@ -76,7 +76,8 @@ export async function POST(request: Request) {
         ? {
             line1: session.customer_details.address.line1 || undefined,
             line2: session.customer_details.address.line2 || undefined,
-            postalCode: session.customer_details.address.postal_code || undefined,
+            postalCode:
+              session.customer_details.address.postal_code || undefined,
             city: session.customer_details.address.city || undefined,
             state: session.customer_details.address.state || undefined,
             country: session.customer_details.address.country || undefined,
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
       try {
         await sendOrderEmail({
           to: session.customer_details.email,
-          subject: "Merci pour votre commande Nebula TCG",
+          subject: "Merci pour votre commande Returners",
           html: "<p>Merci pour votre commande !</p><p>Nous preparons votre colis et vous tiendrons informe de l'expedition.</p>",
         });
       } catch {

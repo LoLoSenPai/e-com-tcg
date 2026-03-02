@@ -6,7 +6,7 @@ export function SiteFooter() {
     <footer className="mt-20 border-t border-black/10 bg-[var(--surface)]">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 md:grid-cols-[1.2fr_1fr_1fr]">
         <div className="space-y-3">
-          <p className="font-display text-2xl">Nebula TCG</p>
+          <p className="font-display text-2xl">Returners</p>
           <p className="text-sm text-slate-600">
             Boutique TCG francaise pour les fans de Pokemon et One Piece. Drops
             reguliers, opening nights et protections premium.
@@ -61,7 +61,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-black/10 px-6 py-4 text-center text-xs text-slate-500">
-        (c) 2026 Nebula TCG. Tous droits reserves.
+        (c) 2026 Returners. Tous droits reserves.
       </div>
     </footer>
   );

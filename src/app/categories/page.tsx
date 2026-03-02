@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Catégories - Nebula TCG",
+  title: "Catégories - Returners",
   description:
-    "Explore les catégories de produits Pokemon et One Piece sur Nebula TCG.",
+    "Explore les catégories de produits Pokemon et One Piece sur Returners.",
 };
 
 type CategoriesPageProps = {
@@ -56,11 +56,10 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
                 ? "/categories"
                 : `/categories?franchise=${encodeURIComponent(franchise)}`
             }
-            className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
-              selected === franchise
+            className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${selected === franchise
                 ? "bg-black text-white shadow-[3px_3px_0_#ffbf69]"
                 : "bg-white text-slate-600 hover:-translate-y-0.5"
-            }`}
+              }`}
           >
             {franchise}
           </Link>
@@ -70,11 +69,10 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         {categoryCounts.map(({ category, count }) => (
           <Link
             key={category}
-            href={`/categories/${encodeURIComponent(category)}${
-              selected !== "Tous"
+            href={`/categories/${encodeURIComponent(category)}${selected !== "Tous"
                 ? `?franchise=${encodeURIComponent(selected)}`
                 : ""
-            }`}
+              }`}
             className="manga-panel manga-card manga-dot rounded-[28px] bg-white p-6"
           >
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">

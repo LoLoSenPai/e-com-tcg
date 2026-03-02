@@ -14,12 +14,19 @@ export async function POST(request: NextRequest) {
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)),
+        },
+      },
     );
   }
 
   const body = await request.json().catch(() => ({}));
-  const email = String(body.email || "").trim().toLowerCase();
+  const email = String(body.email || "")
+    .trim()
+    .toLowerCase();
   if (!email) {
     return NextResponse.json({ ok: true });
   }
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest) {
       )}&token=${encodeURIComponent(token)}`;
       await sendEmail({
         to: customer.email,
-        subject: "Reinitialisation mot de passe - Nebula TCG",
+        subject: "Reinitialisation mot de passe - Returners",
         html: `<p>Tu as demande une reinitialisation de mot de passe.</p><p><a href="${resetUrl}">Reinitialiser mon mot de passe</a></p><p>Ce lien expire dans 1 heure.</p>`,
       });
     }

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useCart } from "@/components/cart-context";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
+import Image from "next/image";
 
 const navLinks = [
   { id: "home", href: "/", label: "Accueil" },
@@ -165,26 +166,18 @@ export function SiteHeader() {
       <div className="glass border-b border-black/10" style={headerGlassStyle}>
         <div
           className={`mx-auto flex w-full max-w-6xl items-center justify-between transition-all duration-300 ${
-            isScrolled ? "px-4 py-2 sm:px-6 sm:py-2.5" : "px-4 py-3 sm:px-6 sm:py-4"
+            isScrolled ? "px-4 py-1 sm:px-6 sm:py-0" : "px-4 py-3 sm:px-6 sm:py-2"
           }`}
         >
           <Link href="/" className="group flex items-center gap-2.5 md:gap-3">
-            <span
-              className={`grid place-items-center rounded-xl bg-black font-display text-white shadow-soft transition-all duration-300 ${
-                isScrolled
-                  ? "h-8 w-8 text-xs md:h-9 md:w-9 md:text-sm"
-                  : "h-9 w-9 text-sm md:h-10 md:w-10 md:text-lg"
-              }`}
-            >
-              NT
-            </span>
+            <Image src="/logo-tr.png" alt="Returners Logo" width={120} height={120} />
             <div className="leading-tight">
               <p
                 className={`font-display transition-all duration-300 ${
                   isScrolled ? "text-sm md:text-base" : "text-base md:text-lg"
                 }`}
               >
-                Nebula TCG
+                Returners
               </p>
               <p
                 className={`hidden text-xs text-slate-600 transition-opacity duration-300 md:block ${
@@ -284,11 +277,9 @@ export function SiteHeader() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-black text-xs font-display text-white">
-                NT
-              </span>
+              <Image src="/logo-tr.png" alt="Returners Logo" width={32} height={32} />
               <p className="font-display text-base text-slate-900">
-                Menu Nebula
+                Menu Returners
               </p>
             </div>
             <button

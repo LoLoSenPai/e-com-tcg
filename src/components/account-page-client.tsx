@@ -112,7 +112,7 @@ export function AccountPageClient() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-semibold text-slate-900">{customer.email}</p>
-            <p className="text-sm text-slate-500">Espace client Nebula TCG</p>
+            <p className="text-sm text-slate-500">Espace client Returners</p>
           </div>
           <button
             type="button"

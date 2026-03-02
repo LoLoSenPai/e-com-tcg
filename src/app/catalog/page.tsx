@@ -10,7 +10,7 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Catalogue - Nebula TCG",
+  title: "Catalogue - Returners",
   description: "Parcours le catalogue complet Pokemon et One Piece.",
 };
 
@@ -39,11 +39,11 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       : selected === "One Piece"
         ? [...franchiseLanguages["One Piece"]]
         : Array.from(
-            new Set([
-              ...franchiseLanguages.Pokemon,
-              ...franchiseLanguages["One Piece"],
-            ]),
-          );
+          new Set([
+            ...franchiseLanguages.Pokemon,
+            ...franchiseLanguages["One Piece"],
+          ]),
+        );
   const selectedLanguage =
     params.language && allowedLanguages.includes(params.language)
       ? params.language

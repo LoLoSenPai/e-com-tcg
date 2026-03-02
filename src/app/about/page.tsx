@@ -12,7 +12,7 @@ export default function AboutPage() {
       <div className="grid gap-8 md:grid-cols-2">
         <div className="manga-panel manga-dot rounded-[32px] bg-white p-6 text-sm text-slate-600">
           <p>
-            Nebula TCG est nee pour offrir une experience d'achat aussi
+            Returners est nee pour offrir une experience d'achat aussi
             excitante que l'opening lui-meme. On selectionne chaque drop pour
             les fans de Pokemon et One Piece.
           </p>

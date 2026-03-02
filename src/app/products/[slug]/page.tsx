@@ -19,14 +19,14 @@ export async function generateMetadata({
   const product = await getProductBySlug(slug);
   if (!product) {
     return {
-      title: "Produit introuvable - Nebula TCG",
+      title: "Produit introuvable - Returners",
     };
   }
   return {
-    title: `${product.name} - Nebula TCG`,
+    title: `${product.name} - Returners`,
     description: product.description,
     openGraph: {
-      title: `${product.name} - Nebula TCG`,
+      title: `${product.name} - Returners`,
       description: product.description,
       images: product.image ? [product.image] : undefined,
     },
@@ -84,10 +84,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
             style={
               product.image
                 ? {
-                    backgroundImage: `url(${product.image})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                  }
+                  backgroundImage: `url(${product.image})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
                 : undefined
             }
           >
