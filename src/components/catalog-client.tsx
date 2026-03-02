@@ -1,14 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
 import { ProductCard } from "@/components/product-card";
+
+type LanguageMap = {
+  Pokemon: string[];
+  "One Piece": string[];
+};
 
 type CatalogClientProps = {
   products: Product[];
   categories: string[];
   franchises: string[];
   initialFranchise: string;
+  initialLanguage: string;
+  languageOptionsByFranchise: LanguageMap;
 };
 
 export function CatalogClient({
@@ -16,12 +23,41 @@ export function CatalogClient({
   categories,
   franchises,
   initialFranchise,
+  initialLanguage,
+  languageOptionsByFranchise,
 }: CatalogClientProps) {
   const [activeCategory, setActiveCategory] = useState<string>("Tous");
   const [activeFranchise, setActiveFranchise] = useState<string>(
     initialFranchise || "Tous",
   );
+  const [activeLanguage, setActiveLanguage] = useState<string>(
+    initialLanguage || "Tous",
+  );
   const [search, setSearch] = useState("");
+
+  const availableLanguages = useMemo(() => {
+    if (activeFranchise === "Pokemon") {
+      return languageOptionsByFranchise.Pokemon;
+    }
+    if (activeFranchise === "One Piece") {
+      return languageOptionsByFranchise["One Piece"];
+    }
+    return Array.from(
+      new Set([
+        ...languageOptionsByFranchise.Pokemon,
+        ...languageOptionsByFranchise["One Piece"],
+      ]),
+    );
+  }, [activeFranchise, languageOptionsByFranchise]);
+
+  useEffect(() => {
+    if (
+      activeLanguage !== "Tous" &&
+      !availableLanguages.includes(activeLanguage)
+    ) {
+      setActiveLanguage("Tous");
+    }
+  }, [activeLanguage, availableLanguages]);
 
   const filtered = useMemo(() => {
     return products.filter((product) => {
@@ -32,13 +68,22 @@ export function CatalogClient({
         product.franchise === "Both" ||
         product.franchise === activeFranchise ||
         product.tags?.includes(activeFranchise);
+      const matchesLanguage =
+        activeLanguage === "Tous" ||
+        product.language === activeLanguage ||
+        product.tags?.includes(activeLanguage);
       const matchesSearch =
         !search ||
         product.name.toLowerCase().includes(search.toLowerCase()) ||
         product.description.toLowerCase().includes(search.toLowerCase());
-      return matchesCategory && matchesSearch && matchesFranchise;
+      return (
+        matchesCategory &&
+        matchesSearch &&
+        matchesFranchise &&
+        matchesLanguage
+      );
     });
-  }, [products, activeCategory, activeFranchise, search]);
+  }, [products, activeCategory, activeFranchise, activeLanguage, search]);
 
   return (
     <div className="space-y-8">
@@ -56,6 +101,22 @@ export function CatalogClient({
               }`}
             >
               {franchise}
+            </button>
+          ))}
+        </div>
+        <div className="flex w-full flex-wrap gap-2">
+          {["Tous", ...availableLanguages].map((language) => (
+            <button
+              key={language}
+              type="button"
+              onClick={() => setActiveLanguage(language)}
+              className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
+                activeLanguage === language
+                  ? "bg-black text-white shadow-[3px_3px_0_#ff6b35]"
+                  : "bg-white text-slate-600 hover:-translate-y-0.5"
+              }`}
+            >
+              {language}
             </button>
           ))}
         </div>

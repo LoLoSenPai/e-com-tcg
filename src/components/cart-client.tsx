@@ -147,7 +147,7 @@ export function CartClient({ products }: CartClientProps) {
         </div>
         <div className="flex items-center justify-between text-sm text-slate-500">
           <span>Livraison</span>
-          <span>Calculee a l'etape suivante</span>
+          <span>Calculée à l&apos;étape suivante</span>
         </div>
         <div className="border-t border-black/10 pt-4">
           <button

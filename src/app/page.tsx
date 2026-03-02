@@ -41,7 +41,7 @@ export default async function Home() {
               href="/categories"
               className="rounded-full border border-black/10 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5"
             >
-              Voir les categories
+              Voir les catégories
             </Link>
           </div>
           <div className="grid grid-cols-3 gap-4 text-xs text-slate-500">

@@ -10,8 +10,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const navLinks = [
   { id: "home", href: "/", label: "Accueil" },
   { id: "catalog", href: "/catalog", label: "Catalogue" },
-  { id: "categories", href: "/categories", label: "Categories" },
-  { id: "about", href: "/about", label: "A propos" },
+  { id: "categories", href: "/categories", label: "Catégories" },
+  { id: "about", href: "/about", label: "À propos" },
   { id: "contact", href: "/contact", label: "Contact" },
 ];
 
@@ -90,9 +90,11 @@ export function SiteHeader() {
   const { totalItems } = useCart();
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpenPath, setMobileOpenPath] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const currentPath = pathname || "/";
+  const mobileOpen = mobileOpenPath === currentPath;
 
   const activeTab = useMemo(() => {
     if (!pathname) return "home";
@@ -103,10 +105,6 @@ export function SiteHeader() {
       .filter((link) => link.href !== "/")
       .find((link) => pathname.startsWith(link.href));
     return match?.id ?? "home";
-  }, [pathname]);
-
-  useEffect(() => {
-    setMobileOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -128,7 +126,7 @@ export function SiteHeader() {
     document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMobileOpen(false);
+        setMobileOpenPath(null);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -249,7 +247,11 @@ export function SiteHeader() {
             </Link>
             <button
               type="button"
-              onClick={() => setMobileOpen((prev) => !prev)}
+              onClick={() =>
+                setMobileOpenPath((prev) =>
+                  prev === currentPath ? null : currentPath,
+                )
+              }
               aria-expanded={mobileOpen}
               aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
               className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-black/10 bg-white text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:text-black md:hidden"
@@ -268,7 +270,7 @@ export function SiteHeader() {
         <button
           type="button"
           aria-label="Fermer le menu mobile"
-          onClick={() => setMobileOpen(false)}
+          onClick={() => setMobileOpenPath(null)}
           className={`absolute inset-0 transition duration-300 ${
             mobileOpen
               ? "bg-black/45 opacity-100 backdrop-blur-[2px]"
@@ -291,7 +293,7 @@ export function SiteHeader() {
             </div>
             <button
               type="button"
-              onClick={() => setMobileOpen(false)}
+              onClick={() => setMobileOpenPath(null)}
               aria-label="Fermer"
               className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white text-slate-700"
             >
@@ -306,7 +308,7 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => setMobileOpenPath(null)}
                   className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${
                     isActive
                       ? "manga-panel bg-black text-white"
@@ -328,14 +330,14 @@ export function SiteHeader() {
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/account"
-                onClick={() => setMobileOpen(false)}
+                onClick={() => setMobileOpenPath(null)}
                 className="rounded-xl border border-black/10 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-700"
               >
                 Compte
               </Link>
               <Link
                 href="/catalog"
-                onClick={() => setMobileOpen(false)}
+                onClick={() => setMobileOpenPath(null)}
                 className="rounded-xl bg-black px-3 py-2 text-center text-sm font-semibold text-white"
               >
                 {primaryCta.label}

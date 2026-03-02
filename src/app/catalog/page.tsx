@@ -1,5 +1,9 @@
 import { getProducts } from "@/lib/products";
-import { categories, franchises } from "@/lib/sample-data";
+import {
+  categories,
+  franchiseLanguages,
+  franchises,
+} from "@/lib/sample-data";
 import { CatalogClient } from "@/components/catalog-client";
 import type { Product } from "@/lib/types";
 import type { Metadata } from "next";
@@ -11,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 type CatalogPageProps = {
-  searchParams: Promise<{ franchise?: string }>;
+  searchParams: Promise<{ franchise?: string; language?: string }>;
 };
 
 function filterByFranchise(products: Product[], franchise?: string) {
@@ -29,6 +33,21 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     params.franchise && franchises.includes(params.franchise as (typeof franchises)[number])
       ? params.franchise
       : "Tous";
+  const allowedLanguages: string[] =
+    selected === "Pokemon"
+      ? [...franchiseLanguages.Pokemon]
+      : selected === "One Piece"
+        ? [...franchiseLanguages["One Piece"]]
+        : Array.from(
+            new Set([
+              ...franchiseLanguages.Pokemon,
+              ...franchiseLanguages["One Piece"],
+            ]),
+          );
+  const selectedLanguage =
+    params.language && allowedLanguages.includes(params.language)
+      ? params.language
+      : "Tous";
   const products = await getProducts();
 
   return (
@@ -41,7 +60,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           Tous les boosters, coffrets et protections
         </h1>
         <p className="text-sm text-slate-600">
-          Filtre par sous categorie ou tape un nom pour trouver la perle rare.
+          Filtre par sous catégorie ou tape un nom pour trouver la perle rare.
         </p>
       </div>
       <CatalogClient
@@ -49,6 +68,11 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         categories={[...categories]}
         franchises={["Tous", ...franchises]}
         initialFranchise={selected}
+        initialLanguage={selectedLanguage}
+        languageOptionsByFranchise={{
+          Pokemon: [...franchiseLanguages.Pokemon],
+          "One Piece": [...franchiseLanguages["One Piece"]],
+        }}
       />
     </main>
   );

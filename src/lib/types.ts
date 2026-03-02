@@ -4,6 +4,7 @@ export type Product = {
   slug: string;
   category: string;
   franchise?: "Pokemon" | "One Piece" | "Both";
+  language?: "Francais" | "Japonnais" | "Coreen" | "Chinois";
   price: number;
   description: string;
   image?: string;

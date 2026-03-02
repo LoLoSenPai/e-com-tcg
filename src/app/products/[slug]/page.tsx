@@ -110,9 +110,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {product.category}
           </p>
           {product.franchise ? (
-            <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-              {product.franchise}
-            </span>
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                {product.franchise}
+              </span>
+              {product.language ? (
+                <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                  {product.language}
+                </span>
+              ) : null}
+            </div>
           ) : null}
           <h1 className="font-display text-4xl text-slate-900">
             {product.name}

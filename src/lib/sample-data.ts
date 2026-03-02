@@ -12,12 +12,27 @@ export const categories = [
 
 export const franchises = ["Pokemon", "One Piece"] as const;
 
+export const pokemonLanguages = [
+  "Francais",
+  "Japonnais",
+  "Coreen",
+  "Chinois",
+] as const;
+
+export const onePieceLanguages = ["Francais", "Japonnais"] as const;
+
+export const franchiseLanguages = {
+  Pokemon: pokemonLanguages,
+  "One Piece": onePieceLanguages,
+} as const;
+
 export const sampleProducts: Product[] = [
   {
     name: "Coffret Rayquaza Foudre Nacree",
     slug: "coffret-rayquaza-foudre-nacree",
     category: "Coffret",
     franchise: "Pokemon",
+    language: "Francais",
     price: 5990,
     description:
       "Coffret collector avec booster exclusif et sleeves holo pour des tirages legendaires.",
@@ -32,6 +47,7 @@ export const sampleProducts: Product[] = [
     slug: "etb-luffy-sunburst",
     category: "Elite trainer box",
     franchise: "One Piece",
+    language: "Japonnais",
     price: 5490,
     description:
       "Pack complet pour demarrer One Piece TCG avec accessoires premium.",
@@ -46,6 +62,7 @@ export const sampleProducts: Product[] = [
     slug: "upc-pikachu-comet-rush",
     category: "Upc",
     franchise: "Pokemon",
+    language: "Chinois",
     price: 15900,
     description:
       "Ultimate premium collection, cartes promo, boosters et deck box ultra deluxe.",
@@ -60,6 +77,7 @@ export const sampleProducts: Product[] = [
     slug: "display-gear-5-storm",
     category: "Display",
     franchise: "One Piece",
+    language: "Francais",
     price: 11900,
     description:
       "Display One Piece 24 boosters, parfait pour sceller un event.",
@@ -74,6 +92,7 @@ export const sampleProducts: Product[] = [
     slug: "booster-pokemon-cosmos-rift",
     category: "Booster",
     franchise: "Pokemon",
+    language: "Coreen",
     price: 590,
     description: "Booster classique pour booster ta collection cosmique.",
     badge: "Hot",
@@ -86,6 +105,7 @@ export const sampleProducts: Product[] = [
     slug: "booster-one-piece-grand-line",
     category: "Booster",
     franchise: "One Piece",
+    language: "Japonnais",
     price: 650,
     description: "Booster One Piece avec artset exclusif.",
     badge: "Hot",
@@ -98,6 +118,7 @@ export const sampleProducts: Product[] = [
     slug: "blister-duo-v-star",
     category: "Blister",
     franchise: "Pokemon",
+    language: "Japonnais",
     price: 1290,
     description: "Blister duo Pokemon pour pulls rapides.",
     image: "/images/demo-1.svg",
@@ -109,6 +130,7 @@ export const sampleProducts: Product[] = [
     slug: "blister-one-piece-dawn",
     category: "Blister",
     franchise: "One Piece",
+    language: "Francais",
     price: 1390,
     description: "Blister One Piece, edition Dawn.",
     image: "/images/demo-2.svg",
@@ -120,6 +142,7 @@ export const sampleProducts: Product[] = [
     slug: "display-pokemon-ether-prism",
     category: "Display",
     franchise: "Pokemon",
+    language: "Francais",
     price: 12900,
     description: "Display Pokemon 36 boosters pour les gros openings.",
     badge: "Pro",
@@ -155,6 +178,7 @@ export const sampleProducts: Product[] = [
     slug: "etb-eevee-nova",
     category: "Elite trainer box",
     franchise: "Pokemon",
+    language: "Japonnais",
     price: 5290,
     description: "ETB Pokemon avec dice et accessoires exclusifs.",
     badge: "Fan favorite",

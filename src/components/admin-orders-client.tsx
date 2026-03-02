@@ -13,10 +13,10 @@ type Stats = {
 };
 
 const statusLabels: Record<OrderStatus, string> = {
-  paid: "Payee",
-  preparation: "Preparation",
-  shipped: "Expediee",
-  delivered: "Livree",
+  paid: "Payée",
+  preparation: "Préparation",
+  shipped: "Expédiée",
+  delivered: "Livrée",
 };
 
 export function AdminOrdersClient() {

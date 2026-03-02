@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Categories - Nebula TCG",
+  title: "Catégories - Nebula TCG",
   description:
-    "Explore les categories de produits Pokemon et One Piece sur Nebula TCG.",
+    "Explore les catégories de produits Pokemon et One Piece sur Nebula TCG.",
 };
 
 type CategoriesPageProps = {
@@ -41,7 +41,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
     <main className="mx-auto w-full max-w-5xl px-6 py-16">
       <div className="mb-10 space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-          Categories
+          Catégories
         </p>
         <h1 className="font-display text-4xl text-slate-900">
           Choisis ton univers TCG
@@ -78,7 +78,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
             className="manga-panel manga-card manga-dot rounded-[28px] bg-white p-6"
           >
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-              Sous categorie
+              Sous catégorie
             </p>
             <p className="mt-2 font-display text-2xl text-slate-900">
               {category}

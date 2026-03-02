@@ -25,7 +25,7 @@ export function AccountPageClient() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
 
-  async function loadData() {
+  async function refreshData() {
     setLoading(true);
     const [meRes, ordersRes] = await Promise.all([
       fetch("/api/account/me"),
@@ -39,7 +39,25 @@ export function AccountPageClient() {
   }
 
   useEffect(() => {
-    loadData();
+    let cancelled = false;
+
+    async function loadInitialData() {
+      const [meRes, ordersRes] = await Promise.all([
+        fetch("/api/account/me"),
+        fetch("/api/account/orders"),
+      ]);
+      const mePayload = await meRes.json();
+      const ordersPayload = await ordersRes.json();
+      if (cancelled) return;
+      setCustomer(mePayload.customer || null);
+      setOrders(ordersPayload.orders || []);
+      setLoading(false);
+    }
+
+    void loadInitialData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function saveProfile(formData: FormData) {
@@ -65,7 +83,7 @@ export function AccountPageClient() {
       return;
     }
     setStatus("Profil mis a jour.");
-    await loadData();
+    await refreshData();
   }
 
   async function logout() {

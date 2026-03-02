@@ -3,13 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
-import { categories as defaultCategories } from "@/lib/sample-data";
+import {
+  categories as defaultCategories,
+  franchiseLanguages,
+} from "@/lib/sample-data";
 
 type FormState = {
   name: string;
   slug: string;
   category: string;
   franchise: string;
+  language: string;
   price: string;
   description: string;
   badge: string;
@@ -23,6 +27,7 @@ const emptyForm: FormState = {
   slug: "",
   category: "",
   franchise: "Pokemon",
+  language: "",
   price: "",
   description: "",
   badge: "",
@@ -43,6 +48,26 @@ export function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const allLanguageOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...franchiseLanguages.Pokemon,
+          ...franchiseLanguages["One Piece"],
+        ]),
+      ) as string[],
+    [],
+  );
+
+  function getLanguageOptions(franchise: string) {
+    if (franchise === "One Piece") {
+      return [...franchiseLanguages["One Piece"]] as string[];
+    }
+    if (franchise === "Both") {
+      return allLanguageOptions;
+    }
+    return [...franchiseLanguages.Pokemon] as string[];
+  }
 
   async function loadProducts() {
     setLoading(true);
@@ -89,6 +114,12 @@ export function AdminDashboard() {
     const fallbackFranchise =
       product.franchise ||
       (product.tags?.includes("One Piece") ? "One Piece" : "Pokemon");
+    const fallbackLanguage =
+      product.language ||
+      product.tags?.find((tag) =>
+        allLanguageOptions.includes(tag),
+      ) ||
+      "";
     setEditingSlug(product.slug);
     setEditingId(product._id ?? null);
     setIsNewCategory(false);
@@ -98,6 +129,7 @@ export function AdminDashboard() {
       slug: product.slug,
       category: product.category,
       franchise: fallbackFranchise,
+      language: fallbackLanguage,
       price: String(product.price),
       description: product.description,
       badge: product.badge ?? "",
@@ -130,6 +162,7 @@ export function AdminDashboard() {
     const payload = {
       ...form,
       category: resolvedCategory,
+      language: form.language || undefined,
       price: Number(form.price),
       stock: form.stock ? Number(form.stock) : undefined,
     };
@@ -332,6 +365,7 @@ export function AdminDashboard() {
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                         {product.category}
+                        {product.language ? ` - ${product.language}` : ""}
                       </p>
                       <p className="font-semibold text-slate-900">
                         {product.name}
@@ -394,7 +428,7 @@ export function AdminDashboard() {
               required
               className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
             />
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="grid gap-2">
               {isNewCategory ? (
                 <input
@@ -437,13 +471,38 @@ export function AdminDashboard() {
             <select
               value={form.franchise}
               onChange={(event) =>
-                setForm((prev) => ({ ...prev, franchise: event.target.value }))
+                setForm((prev) => {
+                  const nextFranchise = event.target.value;
+                  const allowedLanguages = getLanguageOptions(nextFranchise);
+                  const nextLanguage = allowedLanguages.includes(prev.language)
+                    ? prev.language
+                    : "";
+                  return {
+                    ...prev,
+                    franchise: nextFranchise,
+                    language: nextLanguage,
+                  };
+                })
               }
               className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
             >
               <option value="Pokemon">Pokemon</option>
               <option value="One Piece">One Piece</option>
               <option value="Both">Both</option>
+            </select>
+            <select
+              value={form.language}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, language: event.target.value }))
+              }
+              className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
+            >
+              <option value="">Neutre / non applicable</option>
+              {getLanguageOptions(form.franchise).map((language) => (
+                <option key={language} value={language}>
+                  {language}
+                </option>
+              ))}
             </select>
           </div>
           <input

@@ -7,17 +7,17 @@ const faqs = [
   {
     question: "Livraison et suivi",
     answer:
-      "Expedition sous 48h avec suivi par email. Colis securises.",
+      "Expedition sous 48h avec suivi par email. Colis sécurisés.",
   },
   {
     question: "Produits authentiques ?",
     answer:
-      "Tous nos produits sont neufs, scelles et verifies par notre equipe.",
+      "Tous nos produits sont neufs, scellés et vérifiés par notre équipe.",
   },
   {
     question: "Retours",
     answer:
-      "Retours acceptes sous 14 jours si le produit est intact.",
+      "Retours acceptés sous 14 jours si le produit est intact.",
   },
 ];
 
@@ -27,7 +27,7 @@ export default function FaqPage() {
       <div className="mb-10 space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">FAQ</p>
         <h1 className="font-display text-4xl text-slate-900">
-          On repond a tout
+          On répond à tout
         </h1>
       </div>
       <div className="space-y-4">

@@ -24,8 +24,13 @@ export function ProductCard({ product }: ProductCardProps) {
         ) : null}
       </div>
       {franchiseLabel ? (
-        <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-          {franchiseLabel}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+          <span>{franchiseLabel}</span>
+          {product.language ? (
+            <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] tracking-[0.15em]">
+              {product.language}
+            </span>
+          ) : null}
         </div>
       ) : null}
       <Link href={`/products/${product.slug}`}>
