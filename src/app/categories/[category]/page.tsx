@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { categories, franchises } from "@/lib/sample-data";
+import { categories, franchiseLanguages, franchises } from "@/lib/sample-data";
 import { getProducts } from "@/lib/products";
 import { ProductCard } from "@/components/product-card";
 import type { Product } from "@/lib/types";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ franchise?: string }>;
+  searchParams: Promise<{ franchise?: string; language?: string }>;
 };
 
 export async function generateMetadata({
@@ -32,25 +32,49 @@ function filterByFranchise(products: Product[], franchise?: string) {
   });
 }
 
+function filterByLanguage(products: Product[], language?: string) {
+  if (!language || language === "Tous") return products;
+  return products.filter(
+    (product) => product.language === language || product.tags?.includes(language),
+  );
+}
+
+function getAllowedLanguages(franchise: string) {
+  if (franchise === "Pokemon") return [...franchiseLanguages.Pokemon];
+  if (franchise === "One Piece") return [...franchiseLanguages["One Piece"]];
+  return Array.from(
+    new Set([
+      ...franchiseLanguages.Pokemon,
+      ...franchiseLanguages["One Piece"],
+    ]),
+  );
+}
+
 export default async function CategoryPage({
   params,
   searchParams,
 }: CategoryPageProps) {
   const { category } = await params;
   const paramsSearch = await searchParams;
-  const selected =
+  const selectedFranchise =
     paramsSearch.franchise &&
-      franchises.includes(paramsSearch.franchise as (typeof franchises)[number])
+    franchises.includes(paramsSearch.franchise as (typeof franchises)[number])
       ? paramsSearch.franchise
+      : "Tous";
+  const allowedLanguages: string[] = getAllowedLanguages(selectedFranchise);
+  const selectedLanguage =
+    paramsSearch.language && allowedLanguages.includes(paramsSearch.language)
+      ? paramsSearch.language
       : "Tous";
   const decoded = decodeURIComponent(category);
   if (!categories.includes(decoded as (typeof categories)[number])) {
     notFound();
   }
   const products = await getProducts();
-  const filtered = filterByFranchise(products, selected).filter(
-    (product) => product.category === decoded,
-  );
+  const filtered = filterByLanguage(
+    filterByFranchise(products, selectedFranchise),
+    selectedLanguage,
+  ).filter((product) => product.category === decoded);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-16">

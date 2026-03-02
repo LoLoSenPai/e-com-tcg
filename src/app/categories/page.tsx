@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { categories, franchises } from "@/lib/sample-data";
+import {
+  categories,
+  franchiseLanguages,
+  franchises,
+} from "@/lib/sample-data";
 import type { Product } from "@/lib/types";
 import { getProducts } from "@/lib/products";
 import type { Metadata } from "next";
@@ -12,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 type CategoriesPageProps = {
-  searchParams: Promise<{ franchise?: string }>;
+  searchParams: Promise<{ franchise?: string; language?: string }>;
 };
 
 function filterByFranchise(products: Product[], franchise?: string) {
@@ -24,14 +28,63 @@ function filterByFranchise(products: Product[], franchise?: string) {
   });
 }
 
+function filterByLanguage(products: Product[], language?: string) {
+  if (!language || language === "Tous") return products;
+  return products.filter(
+    (product) => product.language === language || product.tags?.includes(language),
+  );
+}
+
+function getAllowedLanguages(franchise: string) {
+  if (franchise === "Pokemon") return [...franchiseLanguages.Pokemon];
+  if (franchise === "One Piece") return [...franchiseLanguages["One Piece"]];
+  return Array.from(
+    new Set([
+      ...franchiseLanguages.Pokemon,
+      ...franchiseLanguages["One Piece"],
+    ]),
+  );
+}
+
+function buildCategoriesHref(franchise: string, language: string) {
+  const query = new URLSearchParams();
+  if (franchise !== "Tous") query.set("franchise", franchise);
+  if (language !== "Tous") query.set("language", language);
+  const queryString = query.toString();
+  return queryString ? `/categories?${queryString}` : "/categories";
+}
+
+function buildCategoryHref(
+  category: string,
+  franchise: string,
+  language: string,
+) {
+  const query = new URLSearchParams();
+  if (franchise !== "Tous") query.set("franchise", franchise);
+  if (language !== "Tous") query.set("language", language);
+  const queryString = query.toString();
+  return `/categories/${encodeURIComponent(category)}${
+    queryString ? `?${queryString}` : ""
+  }`;
+}
+
 export default async function CategoriesPage({ searchParams }: CategoriesPageProps) {
   const params = await searchParams;
-  const selected =
-    params.franchise && franchises.includes(params.franchise as (typeof franchises)[number])
+  const selectedFranchise =
+    params.franchise &&
+    franchises.includes(params.franchise as (typeof franchises)[number])
       ? params.franchise
       : "Tous";
+  const allowedLanguages: string[] = getAllowedLanguages(selectedFranchise);
+  const selectedLanguage =
+    params.language && allowedLanguages.includes(params.language)
+      ? params.language
+      : "Tous";
   const products = await getProducts();
-  const filtered = filterByFranchise(products, selected);
+  const filtered = filterByLanguage(
+    filterByFranchise(products, selectedFranchise),
+    selectedLanguage,
+  );
   const categoryCounts = categories.map((category) => ({
     category,
     count: filtered.filter((product) => product.category === category).length,
@@ -47,21 +100,33 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
           Choisis ton univers TCG
         </h1>
       </div>
-      <div className="manga-panel manga-dot mb-8 flex flex-wrap gap-2 rounded-[24px] bg-white p-4">
+      <div className="manga-panel manga-dot mb-6 flex flex-wrap gap-2 rounded-[24px] bg-white p-4">
         {["Tous", ...franchises].map((franchise) => (
           <Link
             key={franchise}
-            href={
-              franchise === "Tous"
-                ? "/categories"
-                : `/categories?franchise=${encodeURIComponent(franchise)}`
-            }
-            className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${selected === franchise
+            href={buildCategoriesHref(franchise, selectedLanguage)}
+            className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
+              selectedFranchise === franchise
                 ? "bg-black text-white shadow-[3px_3px_0_#ffbf69]"
                 : "bg-white text-slate-600 hover:-translate-y-0.5"
-              }`}
+            }`}
           >
             {franchise}
+          </Link>
+        ))}
+      </div>
+      <div className="manga-panel manga-dot mb-8 flex flex-wrap gap-2 rounded-[24px] bg-white p-4">
+        {["Tous", ...allowedLanguages].map((language) => (
+          <Link
+            key={language}
+            href={buildCategoriesHref(selectedFranchise, language)}
+            className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
+              selectedLanguage === language
+                ? "bg-black text-white shadow-[3px_3px_0_#ff6b35]"
+                : "bg-white text-slate-600 hover:-translate-y-0.5"
+            }`}
+          >
+            {language}
           </Link>
         ))}
       </div>
@@ -69,10 +134,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         {categoryCounts.map(({ category, count }) => (
           <Link
             key={category}
-            href={`/categories/${encodeURIComponent(category)}${selected !== "Tous"
-                ? `?franchise=${encodeURIComponent(selected)}`
-                : ""
-              }`}
+            href={buildCategoryHref(category, selectedFranchise, selectedLanguage)}
             className="manga-panel manga-card manga-dot rounded-[28px] bg-white p-6"
           >
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
