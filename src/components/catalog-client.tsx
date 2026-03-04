@@ -34,6 +34,7 @@ export function CatalogClient({
     initialLanguage || "Tous",
   );
   const [search, setSearch] = useState("");
+  const [gridMode, setGridMode] = useState<"3" | "4">("3");
 
   const availableLanguages = useMemo(() => {
     if (activeFranchise === "Pokemon") {
@@ -85,9 +86,62 @@ export function CatalogClient({
     });
   }, [products, activeCategory, activeFranchise, activeLanguage, search]);
 
+  const gridClassName =
+    gridMode === "4"
+      ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      : "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3";
+
   return (
     <div className="space-y-8">
       <div className="manga-panel manga-dot flex flex-wrap items-center justify-between gap-4 rounded-[28px] bg-white p-4">
+        <div className="flex w-full items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-700">
+            {filtered.length} produit{filtered.length > 1 ? "s" : ""} trouve
+            {filtered.length > 1 ? "s" : ""}
+          </p>
+          <div className="inline-flex items-center gap-1 rounded-xl border-2 border-black bg-[#1e1733] p-1">
+            <button
+              type="button"
+              onClick={() => setGridMode("3")}
+              aria-label="Grille 3 colonnes"
+              title="3 colonnes"
+              className={`grid h-9 w-9 place-items-center rounded-md border border-white/20 transition ${
+                gridMode === "3"
+                  ? "bg-[var(--accent-2)]"
+                  : "bg-white/10 hover:bg-white/20"
+              }`}
+            >
+              <span className="grid grid-cols-3 gap-0.5">
+                {Array.from({ length: 9 }).map((_, index) => (
+                  <span
+                    key={`grid-3-${index}`}
+                    className="h-1.5 w-1.5 rounded-[2px] bg-white/90"
+                  />
+                ))}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setGridMode("4")}
+              aria-label="Grille 4 colonnes"
+              title="4 colonnes"
+              className={`grid h-9 w-9 place-items-center rounded-md border border-white/20 transition ${
+                gridMode === "4"
+                  ? "bg-[var(--accent-2)]"
+                  : "bg-white/10 hover:bg-white/20"
+              }`}
+            >
+              <span className="grid grid-cols-4 gap-0.5">
+                {Array.from({ length: 16 }).map((_, index) => (
+                  <span
+                    key={`grid-4-${index}`}
+                    className="h-1 w-1 rounded-[2px] bg-white/90"
+                  />
+                ))}
+              </span>
+            </button>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           {franchises.map((franchise) => (
             <button
@@ -143,7 +197,7 @@ export function CatalogClient({
           className="w-full max-w-xs rounded-full border-2 border-black bg-white px-4 py-2 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
         />
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className={gridClassName}>
         {filtered.map((product) => (
           <ProductCard key={product.slug} product={product} />
         ))}
