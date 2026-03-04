@@ -3,22 +3,22 @@ export default function AboutPage() {
     <main className="mx-auto w-full max-w-5xl px-6 py-16">
       <div className="mb-10 space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-          A propos
+          À propos
         </p>
         <h1 className="font-display text-4xl text-slate-900">
-          Une boutique imaginee par des passionnes TCG
+          Une boutique imaginée par des passionnés TCG
         </h1>
       </div>
       <div className="grid gap-8 md:grid-cols-2">
         <div className="manga-panel manga-dot rounded-[32px] bg-white p-6 text-sm text-slate-600">
           <p>
-            Returners est nee pour offrir une experience d'achat aussi
-            excitante que l'opening lui-meme. On selectionne chaque drop pour
-            les fans de Pokemon et One Piece.
+            Returners est né pour offrir une expérience d&apos;achat aussi
+            excitante que l&apos;opening lui-même. On sélectionne chaque drop pour
+            les fans de Pokémon et One Piece.
           </p>
           <p>
-            Notre equipe organise des openings live, des events communautaires
-            et des conseils pour preserver tes cartes.
+            Notre équipe organise des openings live, des events communautaires
+            et des conseils pour préserver tes cartes.
           </p>
         </div>
         <div className="manga-panel manga-dot rounded-[32px] bg-white p-6">
@@ -26,9 +26,9 @@ export default function AboutPage() {
             Nos engagements
           </p>
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
-            <li>Produits authentiques et scelles</li>
-            <li>Expedition rapide partout en France</li>
-            <li>Support client passionne et dispo</li>
+            <li>Produits authentiques et scellés</li>
+            <li>Expédition rapide partout en France</li>
+            <li>Support client passionné et disponible</li>
           </ul>
         </div>
       </div>

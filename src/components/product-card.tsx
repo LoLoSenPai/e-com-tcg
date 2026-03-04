@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { formatLanguageCode, formatPrice } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 
 type ProductCardProps = {
@@ -28,7 +28,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <span>{franchiseLabel}</span>
           {product.language ? (
             <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] tracking-[0.15em]">
-              {product.language}
+              {formatLanguageCode(product.language)}
             </span>
           ) : null}
         </div>

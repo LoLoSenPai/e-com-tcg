@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, getProducts } from "@/lib/products";
-import { formatPrice } from "@/lib/format";
+import { formatLanguageCode, formatPrice } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductCard } from "@/components/product-card";
 import type { Metadata } from "next";
@@ -116,7 +116,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </span>
               {product.language ? (
                 <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-                  {product.language}
+                  {formatLanguageCode(product.language)}
                 </span>
               ) : null}
             </div>
