@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:products": "node scripts/import-products-from-json.mjs",
+    "import:products:replace": "node scripts/import-products-from-json.mjs --replace",
+    "import:products:dry-run": "node scripts/import-products-from-json.mjs --dry-run",
+    "import:products:dry-run:replace": "node scripts/import-products-from-json.mjs --dry-run --replace",
+    "fill:nippontcg:images": "node scripts/fill-nippontcg-images.mjs",
+    "fill:nippontcg:images:dry-run": "node scripts/fill-nippontcg-images.mjs --dry-run",
+    "rebuild:products": "node scripts/rebuild-products-from-sources.mjs",
+    "rebuild:products:dry-run": "node scripts/rebuild-products-from-sources.mjs --dry-run"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
