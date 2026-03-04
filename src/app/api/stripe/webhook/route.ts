@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createOrder } from "@/lib/orders";
 import { sendOrderEmail } from "@/lib/email";
-import type { OrderItem } from "@/lib/types";
+import type { OrderItem, ShippingRelayPoint } from "@/lib/types";
 import { getDb } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -41,9 +41,7 @@ export async function POST(request: Request) {
     }));
 
     const db = await getDb();
-    const existing = await db
-      .collection("orders")
-      .findOne({ stripeSessionId: session.id });
+    const existing = await db.collection("orders").findOne({ stripeSessionId: session.id });
     if (existing) {
       return NextResponse.json({ received: true });
     }
@@ -60,10 +58,29 @@ export async function POST(request: Request) {
         shippingRateLabel = undefined;
       }
     }
+
+    const metadata = session.metadata || {};
+    const shippingRelay: ShippingRelayPoint | undefined =
+      metadata.deliveryMode === "relay" && metadata.relayCode
+        ? {
+            code: metadata.relayCode,
+            name: metadata.relayName || metadata.relayCode,
+            network: metadata.relayNetwork || undefined,
+            address: {
+              line1: metadata.relayLine1 || undefined,
+              zipCode: metadata.relayZipCode || undefined,
+              city: metadata.relayCity || undefined,
+              country: metadata.relayCountry || undefined,
+            },
+            latitude: metadata.relayLat ? Number(metadata.relayLat) : undefined,
+            longitude: metadata.relayLng ? Number(metadata.relayLng) : undefined,
+          }
+        : undefined;
+
     await createOrder({
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent?.toString(),
-      customerId: session.metadata?.customerId || undefined,
+      customerId: metadata.customerId || undefined,
       status: "paid",
       amountTotal: session.amount_total || 0,
       shippingAmount: session.total_details?.amount_shipping || 0,
@@ -76,13 +93,13 @@ export async function POST(request: Request) {
         ? {
             line1: session.customer_details.address.line1 || undefined,
             line2: session.customer_details.address.line2 || undefined,
-            postalCode:
-              session.customer_details.address.postal_code || undefined,
+            postalCode: session.customer_details.address.postal_code || undefined,
             city: session.customer_details.address.city || undefined,
             state: session.customer_details.address.state || undefined,
             country: session.customer_details.address.country || undefined,
           }
         : undefined,
+      shippingRelay,
       items,
       createdAt: now,
       updatedAt: now,

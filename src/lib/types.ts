@@ -27,6 +27,34 @@ export type OrderItem = {
   unitAmount: number;
 };
 
+export type ShippingRelayPoint = {
+  code: string;
+  name: string;
+  network?: string;
+  address?: {
+    line1?: string;
+    zipCode?: string;
+    city?: string;
+    country?: string;
+  };
+  latitude?: number;
+  longitude?: number;
+};
+
+export type BoxtalShipment = {
+  boxtalOrderId?: string;
+  shippingOfferCode?: string;
+  status?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  labelUrl?: string;
+  relayCode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lastError?: string;
+};
+
 export type Order = {
   _id?: string;
   stripeSessionId: string;
@@ -53,6 +81,8 @@ export type Order = {
     trackingNumber?: string;
     trackingUrl?: string;
   };
+  boxtalShipment?: BoxtalShipment;
+  shippingRelay?: ShippingRelayPoint;
   shippedAt?: string;
   items: OrderItem[];
   createdAt: string;

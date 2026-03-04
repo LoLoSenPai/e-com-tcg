@@ -284,6 +284,27 @@ export function AccountPageClient() {
                       </div>
                     ) : null}
 
+                    {order.shippingRelay ? (
+                      <div>
+                        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Point relais
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {order.shippingRelay.name} ({order.shippingRelay.code})
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {order.shippingRelay.address?.line1
+                            ? `${order.shippingRelay.address.line1}, `
+                            : ""}
+                          {order.shippingRelay.address?.zipCode || ""}{" "}
+                          {order.shippingRelay.address?.city || ""}
+                          {order.shippingRelay.address?.country
+                            ? ` (${order.shippingRelay.address.country})`
+                            : ""}
+                        </p>
+                      </div>
+                    ) : null}
+
                     {order.shippingTracking?.trackingNumber ? (
                       <div>
                         <p className="mb-1 text-xs uppercase tracking-[0.2em] text-slate-400">
