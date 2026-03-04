@@ -35,7 +35,7 @@ export function CheckoutSuccessClient() {
         </Link>
         <Link
           href="/account"
-          className="rounded-full border-2 border-black px-6 py-3 text-sm font-semibold text-slate-800 transition hover:-translate-y-0.5"
+          className="rounded-full border-2 border-white/80 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/15"
         >
           Voir mon compte
         </Link>

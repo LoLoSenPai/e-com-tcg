@@ -24,6 +24,7 @@ export function AccountPageClient() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
   async function refreshData() {
     setLoading(true);
@@ -196,22 +197,119 @@ export function AccountPageClient() {
       <div className="manga-panel rounded-[24px] bg-white p-6">
         <p className="mb-4 font-semibold text-slate-900">Historique commandes</p>
         <div className="space-y-3">
-          {orders.map((order) => (
-            <div
-              key={order._id || order.stripeSessionId}
-              className="rounded-2xl border border-black/10 p-4"
-            >
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                {order.status}
-              </p>
-              <p className="font-semibold text-slate-900">
-                {formatPrice(order.amountTotal)}
-              </p>
-              <p className="text-xs text-slate-500">
-                {new Date(order.createdAt).toLocaleString("fr-FR")}
-              </p>
-            </div>
-          ))}
+          {orders.map((order) => {
+            const id = order._id || order.stripeSessionId;
+            const isOpen = openOrderId === id;
+
+            return (
+              <div
+                key={id}
+                className="overflow-hidden rounded-2xl border border-black/10"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenOrderId(isOpen ? null : id)}
+                  className="flex w-full items-center justify-between gap-4 p-4 text-left transition hover:bg-black/[0.03]"
+                >
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {order.status}
+                    </p>
+                    <p className="font-semibold text-slate-900">
+                      {formatPrice(order.amountTotal)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(order.createdAt).toLocaleString("fr-FR")}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {isOpen ? "Masquer" : "Voir detail"}
+                  </span>
+                </button>
+
+                {isOpen ? (
+                  <div className="space-y-4 border-t border-black/10 bg-black/[0.02] p-4 text-sm text-slate-700">
+                    <div>
+                      <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Produits
+                      </p>
+                      <div className="space-y-2">
+                        {order.items.map((item, index) => (
+                          <div
+                            key={`${id}-item-${index}`}
+                            className="flex items-center justify-between gap-4"
+                          >
+                            <p className="text-slate-800">
+                              {item.name} x{item.quantity}
+                            </p>
+                            <p className="font-medium text-slate-900">
+                              {formatPrice(item.unitAmount * item.quantity)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+                      <p>
+                        Livraison:{" "}
+                        {order.shippingRateLabel || "Standard"}
+                        {typeof order.shippingAmount === "number"
+                          ? ` (${formatPrice(order.shippingAmount)})`
+                          : ""}
+                      </p>
+                      <p>Session Stripe: {order.stripeSessionId}</p>
+                    </div>
+
+                    {order.shippingAddress ? (
+                      <div>
+                        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Adresse
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {order.shippingAddress.line1 || ""}
+                          {order.shippingAddress.line2
+                            ? `, ${order.shippingAddress.line2}`
+                            : ""}
+                          {order.shippingAddress.postalCode
+                            ? `, ${order.shippingAddress.postalCode}`
+                            : ""}
+                          {order.shippingAddress.city
+                            ? ` ${order.shippingAddress.city}`
+                            : ""}
+                          {order.shippingAddress.country
+                            ? ` (${order.shippingAddress.country})`
+                            : ""}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {order.shippingTracking?.trackingNumber ? (
+                      <div>
+                        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Suivi colis
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {order.shippingTracking.carrier || "Transporteur"} -{" "}
+                          {order.shippingTracking.trackingNumber}
+                        </p>
+                        {order.shippingTracking.trackingUrl ? (
+                          <a
+                            href={order.shippingTracking.trackingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-semibold text-slate-900 underline"
+                          >
+                            Voir le tracking
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
           {orders.length === 0 ? (
             <p className="text-sm text-slate-500">Aucune commande pour le moment.</p>
           ) : null}
