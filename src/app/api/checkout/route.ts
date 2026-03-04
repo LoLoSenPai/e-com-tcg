@@ -67,42 +67,50 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000";
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    line_items: lineItems,
-    success_url: `${origin}/cart?success=1`,
-    cancel_url: `${origin}/cart?cancel=1`,
-    customer_email: customer?.email || undefined,
-    metadata: customer?._id ? { customerId: customer._id } : undefined,
-    shipping_options: [
-      {
-        shipping_rate_data: {
-          display_name: "Livraison standard",
-          fixed_amount: { amount: 490, currency: "eur" },
-          delivery_estimate: {
-            minimum: { unit: "business_day", value: 2 },
-            maximum: { unit: "business_day", value: 5 },
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: lineItems,
+      success_url: `${origin}/cart?success=1`,
+      cancel_url: `${origin}/cart?cancel=1`,
+      customer_email: customer?.email || undefined,
+      metadata: customer?._id ? { customerId: customer._id } : undefined,
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            display_name: "Livraison standard",
+            fixed_amount: { amount: 490, currency: "eur" },
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: 2 },
+              maximum: { unit: "business_day", value: 5 },
+            },
           },
         },
-      },
-      {
-        shipping_rate_data: {
-          display_name: "Livraison express",
-          fixed_amount: { amount: 990, currency: "eur" },
-          delivery_estimate: {
-            minimum: { unit: "business_day", value: 1 },
-            maximum: { unit: "business_day", value: 2 },
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            display_name: "Livraison express",
+            fixed_amount: { amount: 990, currency: "eur" },
+            delivery_estimate: {
+              minimum: { unit: "business_day", value: 1 },
+              maximum: { unit: "business_day", value: 2 },
+            },
           },
         },
+      ],
+      shipping_address_collection: {
+        allowed_countries: ["FR", "BE", "CH", "LU"],
       },
-    ],
-    shipping_address_collection: {
-      allowed_countries: ["FR", "BE", "CH", "LU"],
-    },
-    phone_number_collection: {
-      enabled: true,
-    },
-  });
+      phone_number_collection: {
+        enabled: true,
+      },
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Stripe checkout error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -48,7 +48,11 @@ export function CartClient({ products }: CartClientProps) {
       }
     } catch (error) {
       console.error(error);
-      alert("Impossible de lancer le checkout pour le moment.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossible de lancer le checkout pour le moment.";
+      alert(message);
     } finally {
       setLoading(false);
     }
