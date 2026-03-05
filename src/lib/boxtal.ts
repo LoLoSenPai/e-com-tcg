@@ -762,9 +762,19 @@ function toShippingOffer(item: unknown): BoxtalShippingOfferItem | null {
 }
 
 export async function getBoxtalShippingOffers() {
-  const payload = await boxtalFetch("/v3.1/shipping-offer-code", {
-    method: "GET",
-  });
+  let payload: unknown;
+  try {
+    payload = await boxtalFetch("/v3.1/shipping-offer-code", {
+      method: "GET",
+    });
+  } catch (error) {
+    if (!(error instanceof BoxtalApiError) || error.status !== 404) {
+      throw error;
+    }
+    payload = await boxtalFetch("/v3.1/shipping-offer", {
+      method: "GET",
+    });
+  }
 
   const rawItems = Array.isArray(payload)
     ? payload
@@ -841,7 +851,9 @@ export async function createBoxtalShipment(
   const requestPayload = buildShipmentPayload(order, overrideOfferCode);
   const responsePayload = await boxtalFetch("/v3.1/shipping-order", {
     method: "POST",
-    body: JSON.stringify(requestPayload),
+    body: JSON.stringify({
+      shipment: requestPayload,
+    }),
   });
 
   return normalizeShipmentResult(
