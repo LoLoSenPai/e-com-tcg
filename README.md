@@ -25,6 +25,8 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `RESEND_API_KEY` (email)
 - `EMAIL_FROM` (email)
 - `BOXTAL_ACCESS_KEY`, `BOXTAL_SECRET_KEY`, `BOXTAL_TOKEN_URL`
+- `BOXTAL_API_ACCESS_KEY`, `BOXTAL_API_SECRET_KEY`, `BOXTAL_API_TOKEN_URL`
+- `BOXTAL_MAP_ACCESS_KEY`, `BOXTAL_MAP_SECRET_KEY`, `BOXTAL_MAP_TOKEN_URL`
 - `BOXTAL_API_BASE_URL` (defaut: `https://api.boxtal.build/shipping`)
 - `BOXTAL_SHIPPING_OFFER_CODE_HOME`, `BOXTAL_SHIPPING_OFFER_CODE_RELAY`
 - `BOXTAL_SHIPPER_*` (expediteur pour creation d'expedition)
