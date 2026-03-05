@@ -20,6 +20,32 @@ type BoxtalShippingOffer = {
   label: string;
 };
 
+type BoxtalProbeStatus = {
+  ok: boolean;
+  status?: number;
+  detail?: string;
+  attempt?: string;
+};
+
+type BoxtalProbeSource = {
+  source: "api" | "default" | "map";
+  configured: boolean;
+  keyHint?: string;
+  tokenUrl?: string;
+  token: BoxtalProbeStatus;
+  shippingOffer: {
+    bearer: BoxtalProbeStatus;
+    basic: BoxtalProbeStatus;
+  };
+};
+
+type BoxtalProbeReport = {
+  timestamp: string;
+  apiBaseUrl: string;
+  sourceOrder: Array<"api" | "default" | "map">;
+  sources: BoxtalProbeSource[];
+};
+
 function stringifyDetail(detail: unknown) {
   if (!detail) return "";
   if (typeof detail === "string") return detail;
@@ -43,6 +69,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [creatingShipment, setCreatingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
+  const [probeLoading, setProbeLoading] = useState(false);
+  const [probeError, setProbeError] = useState("");
+  const [probeReport, setProbeReport] = useState<BoxtalProbeReport | null>(null);
 
   async function loadOrder() {
     setLoading(true);
@@ -162,6 +191,28 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
       );
     } finally {
       setCreatingShipment(false);
+    }
+  }
+
+  async function runBoxtalProbe() {
+    setProbeLoading(true);
+    setProbeError("");
+    setProbeReport(null);
+    try {
+      const response = await fetch("/api/admin/boxtal/debug-auth");
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          payload?.detail || payload?.error || "Boxtal probe failed",
+        );
+      }
+      setProbeReport(payload as BoxtalProbeReport);
+    } catch (error) {
+      setProbeError(
+        error instanceof Error ? error.message : "Echec diagnostic Boxtal",
+      );
+    } finally {
+      setProbeLoading(false);
     }
   }
 
@@ -298,6 +349,16 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             {creatingShipment ? "Creation..." : "Creer expedition Boxtal"}
           </button>
         </div>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={runBoxtalProbe}
+            disabled={probeLoading}
+            className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {probeLoading ? "Diagnostic..." : "Diagnostiquer Boxtal"}
+          </button>
+        </div>
         <p className="mt-2 text-xs text-slate-500">
           {loadingShippingOffers
             ? "Chargement des offres transport..."
@@ -305,6 +366,54 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               ? `${shippingOffers.length} offre(s) transport chargee(s).`
               : "Aucune offre chargee (verification API/credentials requise)."}
         </p>
+        {probeError ? (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {probeError}
+          </div>
+        ) : null}
+        {probeReport ? (
+          <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] p-4 text-xs text-slate-700">
+            <p className="font-semibold">Diagnostic Boxtal</p>
+            <p>Timestamp: {new Date(probeReport.timestamp).toLocaleString("fr-FR")}</p>
+            <p>API base URL: {probeReport.apiBaseUrl}</p>
+            <div className="mt-3 space-y-3">
+              {probeReport.sources.map((source) => (
+                <div key={source.source} className="rounded-xl border border-black/10 p-3">
+                  <p className="font-semibold">
+                    Source: {source.source.toUpperCase()}{" "}
+                    {source.configured ? "(configuree)" : "(absente)"}
+                  </p>
+                  {source.keyHint ? <p>Key: {source.keyHint}</p> : null}
+                  {source.tokenUrl ? <p>Token URL: {source.tokenUrl}</p> : null}
+                  <p>
+                    Token: {source.token.ok ? "OK" : "KO"}
+                    {source.token.status ? ` (${source.token.status})` : ""}
+                    {source.token.attempt ? ` [${source.token.attempt}]` : ""}
+                  </p>
+                  {source.token.detail ? <p>Token detail: {source.token.detail}</p> : null}
+                  <p>
+                    Shipping offer (Bearer): {source.shippingOffer.bearer.ok ? "OK" : "KO"}
+                    {source.shippingOffer.bearer.status
+                      ? ` (${source.shippingOffer.bearer.status})`
+                      : ""}
+                  </p>
+                  {source.shippingOffer.bearer.detail ? (
+                    <p>Bearer detail: {source.shippingOffer.bearer.detail}</p>
+                  ) : null}
+                  <p>
+                    Shipping offer (Basic): {source.shippingOffer.basic.ok ? "OK" : "KO"}
+                    {source.shippingOffer.basic.status
+                      ? ` (${source.shippingOffer.basic.status})`
+                      : ""}
+                  </p>
+                  {source.shippingOffer.basic.detail ? (
+                    <p>Basic detail: {source.shippingOffer.basic.detail}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {shippingOffersError ? (
           <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
             {shippingOffersError}

@@ -34,6 +34,32 @@ type BoxtalCredential = {
   tokenUrl: string;
 };
 
+type BoxtalProbeStatus = {
+  ok: boolean;
+  status?: number;
+  detail?: string;
+  attempt?: string;
+};
+
+type BoxtalProbeSource = {
+  source: BoxtalCredentialSource;
+  configured: boolean;
+  keyHint?: string;
+  tokenUrl?: string;
+  token: BoxtalProbeStatus;
+  shippingOffer: {
+    bearer: BoxtalProbeStatus;
+    basic: BoxtalProbeStatus;
+  };
+};
+
+export type BoxtalAuthProbeReport = {
+  timestamp: string;
+  apiBaseUrl: string;
+  sourceOrder: BoxtalCredentialSource[];
+  sources: BoxtalProbeSource[];
+};
+
 const tokenCache = new Map<
   BoxtalCredentialSource,
   { token: string; expiresAt: number }
@@ -96,27 +122,42 @@ function buildCredential(
   };
 }
 
-function getBoxtalCredentialCandidates(): BoxtalCredential[] {
-  const candidates = [
-    buildCredential(
+function getBoxtalCredential(source: BoxtalCredentialSource) {
+  if (source === "api") {
+    return buildCredential(
       "api",
       process.env.BOXTAL_API_ACCESS_KEY,
       process.env.BOXTAL_API_SECRET_KEY,
       process.env.BOXTAL_API_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
-    ),
-    buildCredential(
+    );
+  }
+  if (source === "default") {
+    return buildCredential(
       "default",
       process.env.BOXTAL_ACCESS_KEY,
       process.env.BOXTAL_SECRET_KEY,
       process.env.BOXTAL_TOKEN_URL,
-    ),
-    buildCredential(
-      "map",
-      process.env.BOXTAL_MAP_ACCESS_KEY,
-      process.env.BOXTAL_MAP_SECRET_KEY,
-      process.env.BOXTAL_MAP_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
-    ),
+    );
+  }
+  return buildCredential(
+    "map",
+    process.env.BOXTAL_MAP_ACCESS_KEY,
+    process.env.BOXTAL_MAP_SECRET_KEY,
+    process.env.BOXTAL_MAP_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
+  );
+}
+
+function getBoxtalCredentialCandidates(options?: { dedupe?: boolean }): BoxtalCredential[] {
+  const dedupe = options?.dedupe ?? true;
+  const candidates = [
+    getBoxtalCredential("api"),
+    getBoxtalCredential("default"),
+    getBoxtalCredential("map"),
   ].filter((candidate): candidate is BoxtalCredential => candidate !== null);
+
+  if (!dedupe) {
+    return candidates;
+  }
 
   const unique = new Map<string, BoxtalCredential>();
   for (const candidate of candidates) {
@@ -244,6 +285,196 @@ function normalizePath(path: string) {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
+function buildRequestHeaders(
+  init: RequestInit,
+  authHeader: string,
+  xToken?: string,
+) {
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", authHeader);
+  if (xToken) {
+    headers.set("x-token", xToken);
+  }
+  headers.set("Accept", "application/json");
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
+async function executeBoxtalRequest(
+  path: string,
+  init: RequestInit,
+  headers: Headers,
+) {
+  const response = await fetch(`${getBoxtalApiBaseUrl()}${normalizePath(path)}`, {
+    ...init,
+    headers,
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  let payload: unknown = null;
+  try {
+    payload = text ? (JSON.parse(text) as unknown) : null;
+  } catch {
+    payload = text;
+  }
+
+  return {
+    status: response.status,
+    ok: response.ok,
+    payload,
+  };
+}
+
+function truncate(value: string, max = 280) {
+  return value.length > max ? `${value.slice(0, max)}...` : value;
+}
+
+function detailToString(detail: unknown) {
+  if (typeof detail === "string") {
+    return truncate(detail.trim());
+  }
+  try {
+    return truncate(JSON.stringify(detail));
+  } catch {
+    return truncate(String(detail));
+  }
+}
+
+function maskKey(value: string) {
+  if (value.length <= 8) {
+    return "***";
+  }
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function probeFromError(error: unknown): BoxtalProbeStatus {
+  if (error instanceof BoxtalApiError) {
+    return {
+      ok: false,
+      status: error.status,
+      detail: detailToString(error.detail || error.message),
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      ok: false,
+      detail: detailToString(error.message),
+    };
+  }
+  return {
+    ok: false,
+    detail: detailToString(error),
+  };
+}
+
+export async function debugBoxtalAuthProbe(): Promise<BoxtalAuthProbeReport> {
+  const sourceOrder: BoxtalCredentialSource[] = ["api", "default", "map"];
+  const sources: BoxtalProbeSource[] = [];
+
+  for (const source of sourceOrder) {
+    const credential = getBoxtalCredential(source);
+    if (!credential) {
+      sources.push({
+        source,
+        configured: false,
+        token: {
+          ok: false,
+          detail: "Missing access/secret env vars for this source.",
+        },
+        shippingOffer: {
+          bearer: {
+            ok: false,
+            detail: "Skipped (no credentials).",
+          },
+          basic: {
+            ok: false,
+            detail: "Skipped (no credentials).",
+          },
+        },
+      });
+      continue;
+    }
+
+    const basic = Buffer.from(
+      `${credential.accessKey}:${credential.secretKey}`,
+    ).toString("base64");
+
+    let token: string | null = null;
+    let tokenStatus: BoxtalProbeStatus = { ok: false };
+    try {
+      const tokenResponse = await tryFetchBoxtalToken(credential.tokenUrl, basic);
+      token = tokenResponse.token;
+      tokenStatus = {
+        ok: true,
+        status: 200,
+        attempt: tokenResponse.attempt,
+      };
+    } catch (error) {
+      tokenStatus = probeFromError(error);
+    }
+
+    let bearerStatus: BoxtalProbeStatus = {
+      ok: false,
+      detail: "Skipped (token failed).",
+    };
+    if (token) {
+      const bearerHeaders = buildRequestHeaders(
+        { method: "GET" },
+        `Bearer ${token}`,
+        token,
+      );
+      const bearerResponse = await executeBoxtalRequest(
+        "/v3.1/shipping-offer-code",
+        { method: "GET" },
+        bearerHeaders,
+      );
+      bearerStatus = bearerResponse.ok
+        ? { ok: true, status: bearerResponse.status }
+        : {
+            ok: false,
+            status: bearerResponse.status,
+            detail: detailToString(bearerResponse.payload),
+          };
+    }
+
+    const basicHeaders = buildRequestHeaders({ method: "GET" }, `Basic ${basic}`);
+    const basicResponse = await executeBoxtalRequest(
+      "/v3.1/shipping-offer-code",
+      { method: "GET" },
+      basicHeaders,
+    );
+    const basicStatus: BoxtalProbeStatus = basicResponse.ok
+      ? { ok: true, status: basicResponse.status }
+      : {
+          ok: false,
+          status: basicResponse.status,
+          detail: detailToString(basicResponse.payload),
+        };
+
+    sources.push({
+      source,
+      configured: true,
+      keyHint: maskKey(credential.accessKey),
+      tokenUrl: credential.tokenUrl,
+      token: tokenStatus,
+      shippingOffer: {
+        bearer: bearerStatus,
+        basic: basicStatus,
+      },
+    });
+  }
+
+  return {
+    timestamp: new Date().toISOString(),
+    apiBaseUrl: getBoxtalApiBaseUrl(),
+    sourceOrder,
+    sources,
+  };
+}
+
 async function boxtalFetch(
   path: string,
   init: RequestInit = {},
@@ -257,70 +488,67 @@ async function boxtalFetch(
   }
 
   let lastAuthError: BoxtalApiError | null = null;
+  const errorsBySource: Record<string, unknown> = {};
 
   for (const candidate of candidates) {
-    let token = "";
+    const sourceError: Record<string, unknown> = {};
+
     try {
-      token = await getBoxtalAccessToken(candidate);
+      const token = await getBoxtalAccessToken(candidate);
+      const bearerHeaders = buildRequestHeaders(
+        init,
+        `Bearer ${token}`,
+        token,
+      );
+      const bearerResponse = await executeBoxtalRequest(path, init, bearerHeaders);
+      if (bearerResponse.ok) {
+        return bearerResponse.payload;
+      }
+      sourceError.bearer = {
+        status: bearerResponse.status,
+        detail: bearerResponse.payload,
+      };
+
+      if (bearerResponse.status !== 401 && bearerResponse.status !== 403) {
+        throw new BoxtalApiError(
+          `Boxtal API error (${bearerResponse.status}) on ${normalizePath(path)} [source=${candidate.source}]`,
+          bearerResponse.status,
+          bearerResponse.payload,
+        );
+      }
+      clearCachedToken(candidate.source);
     } catch (error) {
-      lastAuthError =
-        error instanceof BoxtalApiError
-          ? new BoxtalApiError(
-              `${error.message} [source=${candidate.source}]`,
-              error.status,
-              error.detail,
-            )
-          : new BoxtalApiError(
-              `Boxtal token failed (502) [source=${candidate.source}]`,
-              502,
-              error instanceof Error ? error.message : error,
-            );
+      sourceError.token = error instanceof Error ? error.message : error;
+    }
+
+    const basic = Buffer.from(
+      `${candidate.accessKey}:${candidate.secretKey}`,
+    ).toString("base64");
+    const basicHeaders = buildRequestHeaders(init, `Basic ${basic}`);
+    const basicResponse = await executeBoxtalRequest(path, init, basicHeaders);
+    if (basicResponse.ok) {
+      return basicResponse.payload;
+    }
+    sourceError.basic = {
+      status: basicResponse.status,
+      detail: basicResponse.payload,
+    };
+    errorsBySource[candidate.source] = sourceError;
+
+    if (basicResponse.status === 401 || basicResponse.status === 403) {
+      lastAuthError = new BoxtalApiError(
+        `Boxtal API unauthorized (${basicResponse.status}) [source=${candidate.source}]`,
+        basicResponse.status,
+        basicResponse.payload,
+      );
       continue;
     }
 
-    const headers = new Headers(init.headers || {});
-    headers.set("Authorization", `Bearer ${token}`);
-    headers.set("x-token", token);
-    headers.set("Accept", "application/json");
-    if (init.body && !headers.has("Content-Type")) {
-      headers.set("Content-Type", "application/json");
-    }
-
-    const response = await fetch(
-      `${getBoxtalApiBaseUrl()}${normalizePath(path)}`,
-      {
-        ...init,
-        headers,
-        cache: "no-store",
-      },
+    throw new BoxtalApiError(
+      `Boxtal API error (${basicResponse.status}) on ${normalizePath(path)} [source=${candidate.source}]`,
+      basicResponse.status,
+      basicResponse.payload,
     );
-
-    const text = await response.text();
-    let payload: unknown = null;
-    try {
-      payload = text ? (JSON.parse(text) as unknown) : null;
-    } catch {
-      payload = text;
-    }
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        clearCachedToken(candidate.source);
-        lastAuthError = new BoxtalApiError(
-          `Boxtal API unauthorized (${response.status}) [source=${candidate.source}]`,
-          response.status,
-          payload,
-        );
-        continue;
-      }
-      throw new BoxtalApiError(
-        `Boxtal API error (${response.status}) on ${normalizePath(path)} [source=${candidate.source}]`,
-        response.status,
-        payload,
-      );
-    }
-
-    return payload;
   }
 
   throw new BoxtalApiError(
@@ -328,6 +556,7 @@ async function boxtalFetch(
     lastAuthError?.status || 401,
     {
       attemptedSources: candidates.map((candidate) => candidate.source),
+      errorsBySource,
       lastError: lastAuthError?.detail || lastAuthError?.message,
     },
   );
