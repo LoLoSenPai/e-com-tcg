@@ -42,6 +42,7 @@ type BoxtalProbeSource = {
 type BoxtalProbeReport = {
   timestamp: string;
   apiBaseUrl: string;
+  probePath: string;
   sourceOrder: Array<"api" | "default" | "map">;
   sources: BoxtalProbeSource[];
 };
@@ -376,6 +377,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             <p className="font-semibold">Diagnostic Boxtal</p>
             <p>Timestamp: {new Date(probeReport.timestamp).toLocaleString("fr-FR")}</p>
             <p>API base URL: {probeReport.apiBaseUrl}</p>
+            <p>Probe path: {probeReport.probePath}</p>
             <div className="mt-3 space-y-3">
               {probeReport.sources.map((source) => (
                 <div key={source.source} className="rounded-xl border border-black/10 p-3">
@@ -392,7 +394,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                   </p>
                   {source.token.detail ? <p>Token detail: {source.token.detail}</p> : null}
                   <p>
-                    Shipping offer (Bearer): {source.shippingOffer.bearer.ok ? "OK" : "KO"}
+                    Probe API (Bearer): {source.shippingOffer.bearer.ok ? "OK" : "KO"}
                     {source.shippingOffer.bearer.status
                       ? ` (${source.shippingOffer.bearer.status})`
                       : ""}
@@ -401,7 +403,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                     <p>Bearer detail: {source.shippingOffer.bearer.detail}</p>
                   ) : null}
                   <p>
-                    Shipping offer (Basic): {source.shippingOffer.basic.ok ? "OK" : "KO"}
+                    Probe API (Basic): {source.shippingOffer.basic.ok ? "OK" : "KO"}
                     {source.shippingOffer.basic.status
                       ? ` (${source.shippingOffer.basic.status})`
                       : ""}

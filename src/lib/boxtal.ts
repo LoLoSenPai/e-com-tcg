@@ -25,47 +25,60 @@ type BoxtalShipmentResult = {
   raw?: Record<string, unknown>;
 };
 
-type BoxtalAddressPayload = {
+type BoxtalMoneyPayload = {
+  value: number;
+  currency: "EUR";
+};
+
+type BoxtalContactPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
   company?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phoneNumber?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  postalCode: string;
+};
+
+type BoxtalLocationPayload = {
+  street: string;
   city: string;
-  country: string;
+  countryIsoCode: string;
+  postalCode?: string;
+  number?: string;
+};
+
+type BoxtalAddressPayload = {
+  type: "RESIDENTIAL" | "BUSINESS";
+  contact: BoxtalContactPayload;
+  location: BoxtalLocationPayload;
+  additionalInformation?: string;
+};
+
+type BoxtalContentPayload = {
+  id: string;
+  description: string;
 };
 
 type BoxtalPackagePayload = {
   type: "PARCEL";
-  weight: {
-    value: string;
-    unit: "kg";
-  };
-  length: {
-    value: string;
-    unit: "cm";
-  };
-  width: {
-    value: string;
-    unit: "cm";
-  };
-  height: {
-    value: string;
-    unit: "cm";
-  };
+  weight: number;
+  length: number;
+  width: number;
+  height: number;
+  value: BoxtalMoneyPayload;
+  content: BoxtalContentPayload;
+  externalId?: string;
 };
 
 type BoxtalShipmentRequestPayload = {
   shippingOfferCode: string;
   shipment: {
-    reference: string;
+    externalId: string;
+    content: BoxtalContentPayload;
     fromAddress: BoxtalAddressPayload;
     toAddress: BoxtalAddressPayload;
     returnAddress: BoxtalAddressPayload;
     packages: BoxtalPackagePayload[];
+    pickupPointCode?: string;
   };
 };
 
@@ -111,9 +124,12 @@ type BoxtalProbeSource = {
 export type BoxtalAuthProbeReport = {
   timestamp: string;
   apiBaseUrl: string;
+  probePath: string;
   sourceOrder: BoxtalCredentialSource[];
   sources: BoxtalProbeSource[];
 };
+
+const authProbePath = "/v3.1/content-category?language=fr";
 
 const tokenCache = new Map<
   BoxtalCredentialSource,
@@ -482,7 +498,7 @@ export async function debugBoxtalAuthProbe(): Promise<BoxtalAuthProbeReport> {
         token,
       );
       const bearerResponse = await executeBoxtalRequest(
-        "/v3.1/shipping-offer-code",
+        authProbePath,
         { method: "GET" },
         bearerHeaders,
       );
@@ -497,7 +513,7 @@ export async function debugBoxtalAuthProbe(): Promise<BoxtalAuthProbeReport> {
 
     const basicHeaders = buildRequestHeaders({ method: "GET" }, `Basic ${basic}`);
     const basicResponse = await executeBoxtalRequest(
-      "/v3.1/shipping-offer-code",
+      authProbePath,
       { method: "GET" },
       basicHeaders,
     );
@@ -525,6 +541,7 @@ export async function debugBoxtalAuthProbe(): Promise<BoxtalAuthProbeReport> {
   return {
     timestamp: new Date().toISOString(),
     apiBaseUrl: getBoxtalApiBaseUrl(),
+    probePath: authProbePath,
     sourceOrder,
     sources,
   };
@@ -735,39 +752,83 @@ function splitCustomerName(name: string | undefined) {
   };
 }
 
-function toMetricString(value: number, digits = 2) {
-  return Number(value).toFixed(digits).replace(/\.?0+$/, "");
+function splitStreetLine(line: string) {
+  const normalized = line.trim().replace(/\s+/g, " ");
+  const match = normalized.match(/^(\d+[A-Za-z0-9/-]*)\s+(.+)$/);
+  if (!match) {
+    return {
+      street: normalized,
+    };
+  }
+  return {
+    number: match[1],
+    street: match[2],
+  };
+}
+
+function normalizePhone(phone: string, country: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) {
+    return phone;
+  }
+  if (phone.trim().startsWith("+")) {
+    return `+${digits}`;
+  }
+  if (country === "FR") {
+    if (digits.startsWith("33")) {
+      return `+${digits}`;
+    }
+    if (digits.startsWith("0")) {
+      return `+33${digits.slice(1)}`;
+    }
+    return `+33${digits}`;
+  }
+  return `+${digits}`;
+}
+
+function buildContentPayload() {
+  return {
+    id:
+      toNonEmptyString(process.env.BOXTAL_CONTENT_CATEGORY_CODE) ||
+      "content:v1:80100",
+    description:
+      toNonEmptyString(process.env.BOXTAL_CONTENT_DESCRIPTION) ||
+      "Cartes a collectionner et accessoires TCG",
+  } satisfies BoxtalContentPayload;
 }
 
 function buildPartyAddress(options: {
+  type: "RESIDENTIAL" | "BUSINESS";
   company?: string;
   name?: string;
-  email?: string;
-  phone?: string;
+  email: string;
+  phone: string;
   line1: string;
   line2?: string;
   postalCode: string;
   city: string;
   country: string;
 }): BoxtalAddressPayload {
-  const address: BoxtalAddressPayload = {
-    email: options.email,
-    phoneNumber: options.phone,
-    addressLine1: options.line1,
-    addressLine2: options.line2,
-    postalCode: options.postalCode,
-    city: options.city,
-    country: options.country,
-  };
-
-  if (options.company) {
-    address.company = options.company;
-    return address;
-  }
-
+  const { street, number } = splitStreetLine(options.line1);
   const { firstName, lastName } = splitCustomerName(options.name);
-  address.firstName = firstName;
-  address.lastName = lastName;
+  const address: BoxtalAddressPayload = {
+    type: options.type,
+    contact: {
+      firstName,
+      lastName,
+      email: options.email,
+      phone: normalizePhone(options.phone, options.country),
+      company: options.company,
+    },
+    location: {
+      street,
+      number,
+      postalCode: options.postalCode,
+      city: options.city,
+      countryIsoCode: options.country,
+    },
+    additionalInformation: options.line2,
+  };
   return address;
 }
 
@@ -791,26 +852,35 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
     );
   }
 
-  const recipientLine1 =
-    toNonEmptyString(order.shippingAddress?.line1) ||
-    toNonEmptyString(order.shippingRelay?.address?.line1);
-  const recipientZipCode =
-    toNonEmptyString(order.shippingAddress?.postalCode) ||
-    toNonEmptyString(order.shippingRelay?.address?.zipCode);
-  const recipientCity =
-    toNonEmptyString(order.shippingAddress?.city) ||
-    toNonEmptyString(order.shippingRelay?.address?.city);
-  const recipientCountry =
-    toNonEmptyString(order.shippingAddress?.country) ||
-    toNonEmptyString(order.shippingRelay?.address?.country) ||
-    "FR";
-  const recipientLine2 =
-    toNonEmptyString(order.shippingAddress?.line2) ||
-    undefined;
+  const shipper = buildShipperConfig();
+  const recipientEmail = toNonEmptyString(order.customerEmail) || shipper.email;
+  const recipientPhone = toNonEmptyString(order.customerPhone) || shipper.phone;
+  const isRelayDelivery = Boolean(order.shippingRelay?.code);
+  const recipientLine1 = isRelayDelivery
+    ? toNonEmptyString(order.shippingRelay?.address?.line1)
+    : toNonEmptyString(order.shippingAddress?.line1);
+  const recipientZipCode = isRelayDelivery
+    ? toNonEmptyString(order.shippingRelay?.address?.zipCode)
+    : toNonEmptyString(order.shippingAddress?.postalCode);
+  const recipientCity = isRelayDelivery
+    ? toNonEmptyString(order.shippingRelay?.address?.city)
+    : toNonEmptyString(order.shippingAddress?.city);
+  const recipientCountry = isRelayDelivery
+    ? toNonEmptyString(order.shippingRelay?.address?.country) || "FR"
+    : toNonEmptyString(order.shippingAddress?.country) || "FR";
+  const recipientLine2 = isRelayDelivery
+    ? undefined
+    : toNonEmptyString(order.shippingAddress?.line2);
 
-  if (!recipientLine1 || !recipientZipCode || !recipientCity) {
+  if (
+    !recipientLine1 ||
+    !recipientZipCode ||
+    !recipientCity ||
+    !recipientEmail ||
+    !recipientPhone
+  ) {
     throw new BoxtalApiError(
-      "Recipient address incomplete on order. Missing line1/zipCode/city.",
+      "Recipient contact or address incomplete on order. Missing email/phone/line1/postalCode/city.",
       400,
     );
   }
@@ -819,9 +889,19 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   const baseWeight = getEnvNumber("BOXTAL_DEFAULT_WEIGHT_GRAMS", 220);
   const perItemWeight = getEnvNumber("BOXTAL_ITEM_WEIGHT_GRAMS", 40);
   const weight = Math.max(baseWeight, baseWeight + totalQuantity * perItemWeight);
-  const shipper = buildShipperConfig();
+  const content = buildContentPayload();
+  const packageValue = Math.max(
+    0.01,
+    order.items.reduce(
+      (sum, item) => sum + item.unitAmount * item.quantity,
+      0,
+    ) / 100,
+  );
+
   const fromAddress = buildPartyAddress({
+    type: "BUSINESS",
     company: shipper.name,
+    name: shipper.name,
     email: shipper.email,
     phone: shipper.phone,
     line1: shipper.line1,
@@ -832,9 +912,11 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   });
 
   const toAddress = buildPartyAddress({
+    type: isRelayDelivery ? "BUSINESS" : "RESIDENTIAL",
     name: toNonEmptyString(order.customerName) || "Client Returners",
-    email: toNonEmptyString(order.customerEmail),
-    phone: toNonEmptyString(order.customerPhone),
+    company: isRelayDelivery ? order.shippingRelay?.name : undefined,
+    email: recipientEmail,
+    phone: recipientPhone,
     line1: recipientLine1,
     line2: recipientLine2,
     postalCode: recipientZipCode,
@@ -845,43 +927,29 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   const packages: BoxtalPackagePayload[] = [
     {
       type: "PARCEL",
-      weight: {
-        value: toMetricString(weight / 1000, 3),
-        unit: "kg",
+      weight: Number((weight / 1000).toFixed(3)),
+      length: Math.round(getEnvNumber("BOXTAL_DEFAULT_PARCEL_LENGTH_CM", 24)),
+      width: Math.round(getEnvNumber("BOXTAL_DEFAULT_PARCEL_WIDTH_CM", 18)),
+      height: Math.round(getEnvNumber("BOXTAL_DEFAULT_PARCEL_HEIGHT_CM", 8)),
+      value: {
+        value: Number(packageValue.toFixed(2)),
+        currency: "EUR",
       },
-      length: {
-        value: toMetricString(
-          getEnvNumber("BOXTAL_DEFAULT_PARCEL_LENGTH_CM", 24),
-          0,
-        ),
-        unit: "cm",
-      },
-      width: {
-        value: toMetricString(
-          getEnvNumber("BOXTAL_DEFAULT_PARCEL_WIDTH_CM", 18),
-          0,
-        ),
-        unit: "cm",
-      },
-      height: {
-        value: toMetricString(
-          getEnvNumber("BOXTAL_DEFAULT_PARCEL_HEIGHT_CM", 8),
-          0,
-        ),
-        unit: "cm",
-      },
+      content,
+      externalId: order._id || order.stripeSessionId,
     },
   ];
 
-  const reference = order._id || order.stripeSessionId;
   return {
     shippingOfferCode,
     shipment: {
-      reference,
+      externalId: order._id || order.stripeSessionId,
+      content,
       fromAddress,
       toAddress,
       returnAddress: fromAddress,
       packages,
+      pickupPointCode: order.shippingRelay?.code,
     },
   } satisfies BoxtalShipmentRequestPayload;
 }
@@ -900,47 +968,7 @@ function toShippingOffer(item: unknown): BoxtalShippingOfferItem | null {
 }
 
 export async function getBoxtalShippingOffers() {
-  const configuredOffers = buildConfiguredShippingOffers();
-  let payload: unknown;
-  try {
-    payload = await boxtalFetch("/v3.1/shipping-offer-code", {
-      method: "GET",
-    });
-  } catch (error) {
-    if (!(error instanceof BoxtalApiError)) {
-      throw error;
-    }
-    if (error.status !== 401 && error.status !== 403 && error.status !== 404) {
-      throw error;
-    }
-    if (configuredOffers.length > 0) {
-      return configuredOffers;
-    }
-    throw error;
-  }
-
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : isRecord(payload) && Array.isArray(payload.shippingOfferCodes)
-      ? payload.shippingOfferCodes
-      : isRecord(payload) && Array.isArray(payload.items)
-        ? payload.items
-        : isRecord(payload) && Array.isArray(payload.results)
-          ? payload.results
-          : [];
-
-  const offers = rawItems
-    .map((item) => toShippingOffer(item))
-    .filter((item): item is BoxtalShippingOfferItem => item !== null);
-
-  const unique = new Map<string, BoxtalShippingOfferItem>();
-  for (const offer of configuredOffers) {
-    unique.set(offer.code, offer);
-  }
-  for (const offer of offers) {
-    unique.set(offer.code, offer);
-  }
-  return [...unique.values()];
+  return buildConfiguredShippingOffers();
 }
 
 function normalizeShipmentResult(
