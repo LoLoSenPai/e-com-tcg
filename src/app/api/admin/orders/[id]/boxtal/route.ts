@@ -113,15 +113,27 @@ export async function POST(
 
   try {
     const createdShipment = await createBoxtalShipment(order, shippingOfferCode);
-    const shipment = createdShipment.boxtalOrderId
-      ? await syncBoxtalShipment(order, createdShipment)
-      : createdShipment;
+    let shipment = createdShipment;
+    let warning: string | undefined;
+
+    if (createdShipment.boxtalOrderId) {
+      try {
+        shipment = await syncBoxtalShipment(order, createdShipment);
+      } catch (error) {
+        warning =
+          "Expedition creee, mais la synchronisation Boxtal n'est pas encore disponible. Reessaie dans quelques instants ou attends le webhook.";
+        if (!(error instanceof BoxtalApiError)) {
+          throw error;
+        }
+      }
+    }
 
     const updated = await persistShipmentUpdate(id, order, shipment);
 
     return NextResponse.json({
       order: updated,
       shipment,
+      warning,
     });
   } catch (error) {
     if (error instanceof BoxtalApiError) {

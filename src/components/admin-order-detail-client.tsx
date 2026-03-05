@@ -155,7 +155,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             : payload?.error || "Boxtal shipment failed",
         );
       }
-      setShipmentMessage("Expedition Boxtal creee.");
+      setShipmentMessage(
+        payload?.warning || "Expedition Boxtal creee.",
+      );
       if (payload?.shipment?.carrier) {
         setTrackingCarrier(payload.shipment.carrier);
       }
