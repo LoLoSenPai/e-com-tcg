@@ -971,9 +971,45 @@ export async function getBoxtalShippingOffers() {
   return buildConfiguredShippingOffers();
 }
 
+function getResponseContentArray(payload: unknown) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (isRecord(payload) && Array.isArray(payload.content)) {
+    return payload.content;
+  }
+  return [];
+}
+
+function mergeShipmentResults(
+  ...results: Array<Partial<BoxtalShipmentResult> | null | undefined>
+): BoxtalShipmentResult {
+  const merged: BoxtalShipmentResult = {};
+
+  for (const result of results) {
+    if (!result) {
+      continue;
+    }
+
+    if (result.boxtalOrderId) merged.boxtalOrderId = result.boxtalOrderId;
+    if (result.shippingOfferCode) {
+      merged.shippingOfferCode = result.shippingOfferCode;
+    }
+    if (result.status) merged.status = result.status;
+    if (result.carrier) merged.carrier = result.carrier;
+    if (result.trackingNumber) merged.trackingNumber = result.trackingNumber;
+    if (result.trackingUrl) merged.trackingUrl = result.trackingUrl;
+    if (result.labelUrl) merged.labelUrl = result.labelUrl;
+    if (result.relayCode) merged.relayCode = result.relayCode;
+    if (result.raw) merged.raw = result.raw;
+  }
+
+  return merged;
+}
+
 function normalizeShipmentResult(
   payload: unknown,
-  shippingOfferCode: string,
+  shippingOfferCode?: string,
   relayCode?: string,
 ): BoxtalShipmentResult {
   const boxtalOrderId = findFirstStringByKeys(payload, [
@@ -1018,6 +1054,111 @@ function normalizeShipmentResult(
   };
 }
 
+function normalizeTrackingResult(
+  payload: unknown,
+  shippingOfferCode?: string,
+  relayCode?: string,
+): BoxtalShipmentResult {
+  const items = getResponseContentArray(payload);
+  const primary =
+    items.find(
+      (item) =>
+        isRecord(item) &&
+        Boolean(
+          findFirstStringByKeys(item, [
+            "trackingNumber",
+            "trackingCode",
+            "parcelNumber",
+            "packageTrackingUrl",
+            "trackingUrl",
+          ]),
+        ),
+    ) || payload;
+
+  return {
+    shippingOfferCode,
+    status: findFirstStringByKeys(primary, ["status", "state"]),
+    carrier: findFirstStringByKeys(primary, [
+      "carrier",
+      "carrierCode",
+      "carrierName",
+    ]),
+    trackingNumber: findFirstStringByKeys(primary, [
+      "trackingNumber",
+      "trackingCode",
+      "parcelNumber",
+    ]),
+    trackingUrl: findFirstStringByKeys(primary, [
+      "packageTrackingUrl",
+      "trackingUrl",
+      "trackingLink",
+      "trackingUri",
+    ]),
+    relayCode,
+    raw: isRecord(payload) ? payload : undefined,
+  };
+}
+
+function normalizeDocumentResult(
+  payload: unknown,
+  shippingOfferCode?: string,
+  relayCode?: string,
+): BoxtalShipmentResult {
+  const documents = getResponseContentArray(payload).filter(isRecord);
+  const labelDocument =
+    documents.find(
+      (document) =>
+        toNonEmptyString(document.type) === "LABEL" &&
+        toNonEmptyString(document.url),
+    ) ||
+    documents.find((document) => Boolean(toNonEmptyString(document.url)));
+
+  return {
+    shippingOfferCode,
+    labelUrl: labelDocument ? toNonEmptyString(labelDocument.url) : undefined,
+    relayCode,
+    raw: isRecord(payload) ? payload : undefined,
+  };
+}
+
+async function fetchOptionalBoxtalTracking(
+  boxtalOrderId: string,
+  shippingOfferCode?: string,
+  relayCode?: string,
+) {
+  try {
+    const payload = await boxtalFetch(
+      `/v3.1/shipping-order/${encodeURIComponent(boxtalOrderId)}/tracking`,
+      { method: "GET" },
+    );
+    return normalizeTrackingResult(payload, shippingOfferCode, relayCode);
+  } catch (error) {
+    if (error instanceof BoxtalApiError && error.status === 422) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function fetchOptionalBoxtalDocuments(
+  boxtalOrderId: string,
+  shippingOfferCode?: string,
+  relayCode?: string,
+) {
+  try {
+    const payload = await boxtalFetch(
+      `/v3.1/shipping-order/${encodeURIComponent(boxtalOrderId)}/shipping-document`,
+      { method: "GET" },
+    );
+    return normalizeDocumentResult(payload, shippingOfferCode, relayCode);
+  } catch (error) {
+    if (error instanceof BoxtalApiError && error.status === 422) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function createBoxtalShipment(
   order: Order,
   overrideOfferCode?: string,
@@ -1032,5 +1173,40 @@ export async function createBoxtalShipment(
     responsePayload,
     requestPayload.shippingOfferCode,
     order.shippingRelay?.code,
+  );
+}
+
+export async function syncBoxtalShipment(
+  order: Pick<Order, "boxtalShipment" | "shippingRelay">,
+  seed?: Partial<BoxtalShipmentResult>,
+) {
+  const boxtalOrderId = seed?.boxtalOrderId || order.boxtalShipment?.boxtalOrderId;
+  if (!boxtalOrderId) {
+    throw new BoxtalApiError(
+      "Missing Boxtal order id. Create a shipment first.",
+      400,
+    );
+  }
+
+  const shippingOfferCode =
+    seed?.shippingOfferCode || order.boxtalShipment?.shippingOfferCode;
+  const relayCode =
+    seed?.relayCode || order.shippingRelay?.code || order.boxtalShipment?.relayCode;
+
+  const baseOrderPayload = await boxtalFetch(
+    `/v3.1/shipping-order/${encodeURIComponent(boxtalOrderId)}`,
+    { method: "GET" },
+  );
+
+  const [trackingResult, documentResult] = await Promise.all([
+    fetchOptionalBoxtalTracking(boxtalOrderId, shippingOfferCode, relayCode),
+    fetchOptionalBoxtalDocuments(boxtalOrderId, shippingOfferCode, relayCode),
+  ]);
+
+  return mergeShipmentResults(
+    seed,
+    normalizeShipmentResult(baseOrderPayload, shippingOfferCode, relayCode),
+    trackingResult,
+    documentResult,
   );
 }

@@ -68,6 +68,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [loadingShippingOffers, setLoadingShippingOffers] = useState(false);
   const [shippingOffersError, setShippingOffersError] = useState("");
   const [creatingShipment, setCreatingShipment] = useState(false);
+  const [syncingShipment, setSyncingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
   const [probeLoading, setProbeLoading] = useState(false);
@@ -192,6 +193,43 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
       );
     } finally {
       setCreatingShipment(false);
+    }
+  }
+
+  async function syncShipment() {
+    setSyncingShipment(true);
+    setShipmentMessage("");
+    setShipmentError("");
+    try {
+      const response = await fetch(`/api/admin/orders/${id}/boxtal`, {
+        method: "PATCH",
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = stringifyDetail(payload?.detail);
+        throw new Error(
+          detail
+            ? `${payload?.error || "Boxtal sync failed"} - ${detail}`
+            : payload?.error || "Boxtal sync failed",
+        );
+      }
+      setShipmentMessage("Boxtal synchronise.");
+      if (payload?.shipment?.carrier) {
+        setTrackingCarrier(payload.shipment.carrier);
+      }
+      if (payload?.shipment?.trackingNumber) {
+        setTrackingNumber(payload.shipment.trackingNumber);
+      }
+      if (payload?.shipment?.trackingUrl) {
+        setTrackingUrl(payload.shipment.trackingUrl);
+      }
+      await loadOrder();
+    } catch (error) {
+      setShipmentError(
+        error instanceof Error ? error.message : "Echec synchronisation Boxtal",
+      );
+    } finally {
+      setSyncingShipment(false);
     }
   }
 
@@ -350,7 +388,15 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             {creatingShipment ? "Creation..." : "Creer expedition Boxtal"}
           </button>
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={syncShipment}
+            disabled={syncingShipment || !order.boxtalShipment?.boxtalOrderId}
+            className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {syncingShipment ? "Synchronisation..." : "Synchroniser Boxtal"}
+          </button>
           <button
             type="button"
             onClick={runBoxtalProbe}
