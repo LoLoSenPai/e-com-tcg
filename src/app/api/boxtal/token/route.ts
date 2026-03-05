@@ -11,7 +11,18 @@ type BoxtalTokenResponse = {
   expires_in?: number;
 };
 
-let tokenCache: { token: string; expiresAt: number } | null = null;
+type CredentialSource = "map" | "default" | "api";
+
+type Credential = {
+  source: CredentialSource;
+  accessKey: string;
+  secretKey: string;
+  tokenUrl: string;
+};
+
+let tokenCache:
+  | { token: string; expiresAt: number; source: CredentialSource }
+  | null = null;
 
 function getCachedToken() {
   if (!tokenCache) return null;
@@ -19,7 +30,7 @@ function getCachedToken() {
     tokenCache = null;
     return null;
   }
-  return tokenCache.token;
+  return tokenCache;
 }
 
 function getTokenValue(payload: BoxtalTokenResponse | null) {
@@ -35,6 +46,51 @@ function getExpiresIn(payload: BoxtalTokenResponse | null) {
   const raw = payload.expiresIn ?? payload.expires_in ?? 300;
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? value : 300;
+}
+
+function getDefaultTokenUrl() {
+  return (
+    process.env.BOXTAL_TOKEN_URL ||
+    "https://private-gateway.boxtal.com/iam/account-app/token"
+  );
+}
+
+function getCredentials(): Credential[] {
+  const candidates = [
+    process.env.BOXTAL_MAP_ACCESS_KEY && process.env.BOXTAL_MAP_SECRET_KEY
+      ? {
+          source: "map",
+          accessKey: process.env.BOXTAL_MAP_ACCESS_KEY,
+          secretKey: process.env.BOXTAL_MAP_SECRET_KEY,
+          tokenUrl: process.env.BOXTAL_MAP_TOKEN_URL || getDefaultTokenUrl(),
+        }
+      : null,
+    process.env.BOXTAL_ACCESS_KEY && process.env.BOXTAL_SECRET_KEY
+      ? {
+          source: "default",
+          accessKey: process.env.BOXTAL_ACCESS_KEY,
+          secretKey: process.env.BOXTAL_SECRET_KEY,
+          tokenUrl: process.env.BOXTAL_TOKEN_URL || getDefaultTokenUrl(),
+        }
+      : null,
+    process.env.BOXTAL_API_ACCESS_KEY && process.env.BOXTAL_API_SECRET_KEY
+      ? {
+          source: "api",
+          accessKey: process.env.BOXTAL_API_ACCESS_KEY,
+          secretKey: process.env.BOXTAL_API_SECRET_KEY,
+          tokenUrl: process.env.BOXTAL_API_TOKEN_URL || getDefaultTokenUrl(),
+        }
+      : null,
+  ].filter((credential): credential is Credential => credential !== null);
+
+  const unique = new Map<string, Credential>();
+  for (const credential of candidates) {
+    const key = `${credential.accessKey}:${credential.secretKey}:${credential.tokenUrl}`;
+    if (!unique.has(key)) {
+      unique.set(key, credential);
+    }
+  }
+  return [...unique.values()];
 }
 
 async function fetchToken(tokenUrl: string, basic: string) {
@@ -122,64 +178,91 @@ async function fetchToken(tokenUrl: string, basic: string) {
 export async function GET() {
   const cached = getCachedToken();
   if (cached) {
-    return NextResponse.json({ accessToken: cached, cached: true });
+    return NextResponse.json({
+      accessToken: cached.token,
+      cached: true,
+      source: cached.source,
+    });
   }
 
-  const accessKey =
-    process.env.BOXTAL_MAP_ACCESS_KEY || process.env.BOXTAL_ACCESS_KEY;
-  const secretKey =
-    process.env.BOXTAL_MAP_SECRET_KEY || process.env.BOXTAL_SECRET_KEY;
-  const tokenUrl =
-    process.env.BOXTAL_MAP_TOKEN_URL ||
-    process.env.BOXTAL_TOKEN_URL ||
-    "https://private-gateway.boxtal.com/iam/account-app/token";
-
-  if (!accessKey || !secretKey) {
+  const credentials = getCredentials();
+  if (credentials.length === 0) {
     return NextResponse.json(
       {
         error:
-          "Missing map credentials (BOXTAL_MAP_ACCESS_KEY/BOXTAL_MAP_SECRET_KEY or BOXTAL_ACCESS_KEY/BOXTAL_SECRET_KEY)",
+          "Missing Boxtal credentials. Set BOXTAL_MAP_* (recommended) or BOXTAL_ACCESS_KEY/BOXTAL_SECRET_KEY.",
       },
       { status: 400 },
     );
   }
 
-  try {
-    const basic = Buffer.from(`${accessKey}:${secretKey}`).toString("base64");
-    const result = await fetchToken(tokenUrl, basic);
-    tokenCache = {
-      token: result.accessToken,
-      expiresAt: Date.now() + Math.max(60, result.expiresIn - 60) * 1000,
-    };
-    return NextResponse.json({
-      accessToken: result.accessToken,
-      cached: false,
-      attempt: result.attempt,
-    });
-  } catch (error) {
-    let parsed: {
-      error?: string;
-      status?: number;
-      detail?: string;
-      attempt?: string;
-    } | null = null;
-    try {
-      parsed = JSON.parse(
-        error instanceof Error ? error.message : "{}",
-      ) as Record<string, unknown> as {
-        error?: string;
+  let lastError:
+    | {
         status?: number;
         detail?: string;
         attempt?: string;
-      };
-    } catch {
-      parsed = null;
+        source?: CredentialSource;
+      }
+    | null = null;
+
+  try {
+    for (const credential of credentials) {
+      try {
+        const basic = Buffer.from(
+          `${credential.accessKey}:${credential.secretKey}`,
+        ).toString("base64");
+        const result = await fetchToken(credential.tokenUrl, basic);
+        tokenCache = {
+          token: result.accessToken,
+          expiresAt: Date.now() + Math.max(60, result.expiresIn - 60) * 1000,
+          source: credential.source,
+        };
+        return NextResponse.json({
+          accessToken: result.accessToken,
+          cached: false,
+          attempt: result.attempt,
+          source: credential.source,
+        });
+      } catch (error) {
+        let parsed: {
+          status?: number;
+          detail?: string;
+          attempt?: string;
+        } | null = null;
+        try {
+          parsed = JSON.parse(
+            error instanceof Error ? error.message : "{}",
+          ) as Record<string, unknown> as {
+            status?: number;
+            detail?: string;
+            attempt?: string;
+          };
+        } catch {
+          parsed = null;
+        }
+        lastError = {
+          status: parsed?.status || 502,
+          detail: parsed?.detail || (error instanceof Error ? error.message : "Unknown"),
+          attempt: parsed?.attempt,
+          source: credential.source,
+        };
+      }
     }
+
     return NextResponse.json(
       {
-        error: `Boxtal token failed (${parsed?.status || 502})`,
-        detail: parsed?.detail || (error instanceof Error ? error.message : "Unknown"),
-        attempt: parsed?.attempt,
+        error: `Boxtal token failed (${lastError?.status || 502})`,
+        detail: lastError?.detail || "Unknown",
+        attempt: lastError?.attempt,
+        source: lastError?.source,
+      },
+      { status: 502 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Boxtal token failed (502)",
+        detail: error instanceof Error ? error.message : "Unknown",
       },
       { status: 502 },
     );

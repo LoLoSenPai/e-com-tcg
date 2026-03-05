@@ -25,7 +25,7 @@ type BoxtalParcelPoint = {
 
 type BoxtalMapsInstance = {
   onSearchParcelPointsResponse: (
-    callback: (parcelPointsResponse: unknown[]) => void,
+    callback: (parcelPointsResponse: unknown) => void,
   ) => void;
   searchParcelPoints: (
     address: BoxtalAddress,
@@ -33,6 +33,14 @@ type BoxtalMapsInstance = {
   ) => void;
   clearParcelPoints: () => void;
 };
+
+type BoxtalNetworkCode =
+  | "MONR_NETWORK"
+  | "CHRP_NETWORK"
+  | "UPSE_NETWORK"
+  | "SOGP_NETWORK"
+  | "DHLE_NETWORK"
+  | "COPR_NETWORK";
 
 declare global {
   interface Window {
@@ -43,18 +51,13 @@ declare global {
         accessToken: string;
         config?: {
           locale?: "fr" | "en";
-          parcelPointNetworks: Array<{
-            code:
-              | "MONR_NETWORK"
-              | "CHRP_NETWORK"
-              | "UPSE_NETWORK"
-              | "SOGP_NETWORK"
-              | "DHLE_NETWORK"
-              | "COPR_NETWORK";
+          parcelPointNetworks?: Array<{
+            code: BoxtalNetworkCode;
           }>;
           options: {
             autoSelectNearestParcelPoint: boolean;
             primaryColor: string;
+            postalCodeCityInput?: boolean;
           };
         };
         onMapLoaded?: () => void;
@@ -67,6 +70,55 @@ const boxtalScriptSrc =
   "https://maps.boxtal.com/app/v3/assets/dependencies/@boxtal/parcel-point-map/dist/index.global.js";
 
 const mapContainerId = "boxtal-relay-map";
+const boxtalNetworkCodes = new Set<BoxtalNetworkCode>([
+  "MONR_NETWORK",
+  "CHRP_NETWORK",
+  "UPSE_NETWORK",
+  "SOGP_NETWORK",
+  "DHLE_NETWORK",
+  "COPR_NETWORK",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readBoxtalNetworkConfig():
+  | Array<{ code: BoxtalNetworkCode }>
+  | undefined {
+  const raw = process.env.NEXT_PUBLIC_BOXTAL_MAP_NETWORKS;
+  if (!raw) return undefined;
+
+  const networks = raw
+    .split(",")
+    .map((entry) => entry.trim().toUpperCase())
+    .filter((entry): entry is BoxtalNetworkCode =>
+      boxtalNetworkCodes.has(entry as BoxtalNetworkCode),
+    )
+    .map((code) => ({ code }));
+
+  return networks.length > 0 ? networks : undefined;
+}
+
+function readBoxtalResponseError(response: unknown) {
+  if (!isRecord(response)) return null;
+  if (typeof response.error === "string" && response.error.trim()) {
+    return response.error.trim();
+  }
+  const messages = response.messages;
+  if (Array.isArray(messages)) {
+    const text = messages
+      .map((message) =>
+        isRecord(message) && typeof message.text === "string"
+          ? message.text
+          : null,
+      )
+      .filter((value): value is string => Boolean(value))
+      .join(" - ");
+    if (text) return text;
+  }
+  return null;
+}
 
 async function loadBoxtalScript() {
   if (window.BoxtalParcelPointMap?.BoxtalParcelPointMap) {
@@ -135,6 +187,12 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     null,
   );
   const mapRef = useRef<BoxtalMapsInstance | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSearchAddressRef = useRef<Omit<BoxtalAddress, "country"> | null>(
+    null,
+  );
+  const activeCountryRef = useRef<"FR" | "FRA">("FR");
+  const retriedWithFraRef = useRef(false);
   const [address, setAddress] = useState({
     zipCode: "",
     city: "",
@@ -166,24 +224,24 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           throw new Error("Composant carte Boxtal indisponible");
         }
 
+        const configuredNetworks = readBoxtalNetworkConfig();
+        const mapConfig = {
+          locale: "fr" as const,
+          ...(configuredNetworks
+            ? { parcelPointNetworks: configuredNetworks }
+            : {}),
+          options: {
+            autoSelectNearestParcelPoint: true,
+            primaryColor: "#ff6b35",
+            postalCodeCityInput: true,
+          },
+        };
+
         mapRef.current = new Constructor({
+          debug: process.env.NEXT_PUBLIC_BOXTAL_MAP_DEBUG === "1",
           domToLoadMap: `#${mapContainerId}`,
           accessToken: tokenPayload.accessToken,
-          config: {
-            locale: "fr",
-            parcelPointNetworks: [
-              { code: "MONR_NETWORK" },
-              { code: "CHRP_NETWORK" },
-              { code: "UPSE_NETWORK" },
-              { code: "SOGP_NETWORK" },
-              { code: "DHLE_NETWORK" },
-              { code: "COPR_NETWORK" },
-            ],
-            options: {
-              autoSelectNearestParcelPoint: true,
-              primaryColor: "#ff6b35",
-            },
-          },
+          config: mapConfig,
           onMapLoaded: () => {
             if (!cancelled) {
               setReady(true);
@@ -192,8 +250,50 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
         });
 
         mapRef.current.onSearchParcelPointsResponse((response) => {
-          if (!cancelled && Array.isArray(response)) {
+          if (cancelled) return;
+
+          if (Array.isArray(response)) {
             setResultsCount(response.length);
+            if (
+              response.length === 0 &&
+              activeCountryRef.current === "FR" &&
+              !retriedWithFraRef.current &&
+              lastSearchAddressRef.current
+            ) {
+              retriedWithFraRef.current = true;
+              activeCountryRef.current = "FRA";
+              mapRef.current?.searchParcelPoints(
+                { ...lastSearchAddressRef.current, country: "FRA" },
+                (selected) => {
+                  const normalized = normalizeRelayPoint(selected);
+                  setSelectedPoint(normalized);
+                  onSelect(normalized);
+                },
+              );
+              return;
+            }
+
+            if (response.length === 0) {
+              setError(
+                "Aucun point relais trouve pour cette adresse. Essaie une autre ville/code postal.",
+              );
+            }
+            if (searchTimeoutRef.current) {
+              clearTimeout(searchTimeoutRef.current);
+              searchTimeoutRef.current = null;
+            }
+            setSearching(false);
+            return;
+          }
+
+          const boxtalError = readBoxtalResponseError(response);
+          if (boxtalError) {
+            setError(`Recherche Boxtal impossible: ${boxtalError}`);
+            if (searchTimeoutRef.current) {
+              clearTimeout(searchTimeoutRef.current);
+              searchTimeoutRef.current = null;
+            }
+            setSearching(false);
           }
         });
       } catch (initError) {
@@ -215,6 +315,9 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
 
     return () => {
       cancelled = true;
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
       mapRef.current = null;
     };
   }, []);
@@ -223,17 +326,25 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     if (!mapRef.current) return;
     setError("");
     setSearching(true);
+    setResultsCount(null);
     setSelectedPoint(null);
+    retriedWithFraRef.current = false;
+    activeCountryRef.current = "FR";
     onSelect(null);
+
+    const normalizedAddress = {
+      zipCode: address.zipCode.trim(),
+      city: address.city.trim(),
+      street: address.street.trim() || undefined,
+    };
+    lastSearchAddressRef.current = normalizedAddress;
 
     try {
       mapRef.current.clearParcelPoints();
       mapRef.current.searchParcelPoints(
         {
           country: "FR",
-          zipCode: address.zipCode.trim(),
-          city: address.city.trim(),
-          street: address.street.trim() || undefined,
+          ...normalizedAddress,
         },
         (selected) => {
           const normalized = normalizeRelayPoint(selected);
@@ -241,13 +352,22 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           onSelect(normalized);
         },
       );
+
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      searchTimeoutRef.current = setTimeout(() => {
+        setSearching(false);
+        setError(
+          "Aucune reponse Boxtal recue. Verifie les cles du composant carte et reessaie.",
+        );
+      }, 12000);
     } catch (searchError) {
       setError(
         searchError instanceof Error
           ? searchError.message
           : "Recherche point relais impossible",
       );
-    } finally {
       setSearching(false);
     }
   }

@@ -39,6 +39,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [shippingOffers, setShippingOffers] = useState<BoxtalShippingOffer[]>([]);
   const [shippingOfferCode, setShippingOfferCode] = useState("");
   const [loadingShippingOffers, setLoadingShippingOffers] = useState(false);
+  const [shippingOffersError, setShippingOffersError] = useState("");
   const [creatingShipment, setCreatingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
@@ -67,19 +68,28 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
 
   async function loadShippingOffers() {
     setLoadingShippingOffers(true);
+    setShippingOffersError("");
     try {
       const response = await fetch("/api/admin/boxtal/shipping-offers");
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.error || "Load shipping offers failed");
+        const detail = stringifyDetail(payload?.detail);
+        throw new Error(
+          detail
+            ? `${payload?.error || "Load shipping offers failed"} - ${detail}`
+            : payload?.error || "Load shipping offers failed",
+        );
       }
       setShippingOffers(payload.offers || []);
       setShippingOfferCode(
         (current) =>
           current || payload.offers?.[0]?.code || order?.boxtalShipment?.shippingOfferCode || "",
       );
-    } catch {
+    } catch (error) {
       setShippingOffers([]);
+      setShippingOffersError(
+        error instanceof Error ? error.message : "Echec chargement offres Boxtal",
+      );
     } finally {
       setLoadingShippingOffers(false);
     }
@@ -295,6 +305,11 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               ? `${shippingOffers.length} offre(s) transport chargee(s).`
               : "Aucune offre chargee (verification API/credentials requise)."}
         </p>
+        {shippingOffersError ? (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {shippingOffersError}
+          </div>
+        ) : null}
         {shipmentMessage ? (
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             {shipmentMessage}

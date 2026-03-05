@@ -25,7 +25,19 @@ type BoxtalShipmentResult = {
   raw?: Record<string, unknown>;
 };
 
-let tokenCache: { token: string; expiresAt: number } | null = null;
+type BoxtalCredentialSource = "api" | "default" | "map";
+
+type BoxtalCredential = {
+  source: BoxtalCredentialSource;
+  accessKey: string;
+  secretKey: string;
+  tokenUrl: string;
+};
+
+const tokenCache = new Map<
+  BoxtalCredentialSource,
+  { token: string; expiresAt: number }
+>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -35,29 +47,86 @@ function getBoxtalApiBaseUrl() {
   return process.env.BOXTAL_API_BASE_URL || "https://api.boxtal.build/shipping";
 }
 
-function getBoxtalTokenUrl() {
+function getDefaultTokenUrl() {
   return (
-    process.env.BOXTAL_API_TOKEN_URL ||
     process.env.BOXTAL_TOKEN_URL ||
     "https://private-gateway.boxtal.com/iam/account-app/token"
   );
 }
 
-function getBoxtalAccessKey() {
-  return process.env.BOXTAL_API_ACCESS_KEY || process.env.BOXTAL_ACCESS_KEY || "";
-}
-
-function getBoxtalSecretKey() {
-  return process.env.BOXTAL_API_SECRET_KEY || process.env.BOXTAL_SECRET_KEY || "";
-}
-
-function getCachedToken() {
-  if (!tokenCache) return null;
-  if (Date.now() >= tokenCache.expiresAt) {
-    tokenCache = null;
+function getCachedToken(source: BoxtalCredentialSource) {
+  const cached = tokenCache.get(source);
+  if (!cached) return null;
+  if (Date.now() >= cached.expiresAt) {
+    tokenCache.delete(source);
     return null;
   }
-  return tokenCache.token;
+  return cached.token;
+}
+
+function setCachedToken(
+  source: BoxtalCredentialSource,
+  token: string,
+  expiresInSeconds: number,
+) {
+  tokenCache.set(source, {
+    token,
+    expiresAt: Date.now() + Math.max(60, expiresInSeconds - 60) * 1000,
+  });
+}
+
+function clearCachedToken(source: BoxtalCredentialSource) {
+  tokenCache.delete(source);
+}
+
+function buildCredential(
+  source: BoxtalCredentialSource,
+  accessKey: string | undefined,
+  secretKey: string | undefined,
+  tokenUrl: string | undefined,
+): BoxtalCredential | null {
+  if (!accessKey || !secretKey) {
+    return null;
+  }
+  return {
+    source,
+    accessKey,
+    secretKey,
+    tokenUrl: tokenUrl || getDefaultTokenUrl(),
+  };
+}
+
+function getBoxtalCredentialCandidates(): BoxtalCredential[] {
+  const candidates = [
+    buildCredential(
+      "api",
+      process.env.BOXTAL_API_ACCESS_KEY,
+      process.env.BOXTAL_API_SECRET_KEY,
+      process.env.BOXTAL_API_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
+    ),
+    buildCredential(
+      "default",
+      process.env.BOXTAL_ACCESS_KEY,
+      process.env.BOXTAL_SECRET_KEY,
+      process.env.BOXTAL_TOKEN_URL,
+    ),
+    buildCredential(
+      "map",
+      process.env.BOXTAL_MAP_ACCESS_KEY,
+      process.env.BOXTAL_MAP_SECRET_KEY,
+      process.env.BOXTAL_MAP_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
+    ),
+  ].filter((candidate): candidate is BoxtalCredential => candidate !== null);
+
+  const unique = new Map<string, BoxtalCredential>();
+  for (const candidate of candidates) {
+    const key = `${candidate.accessKey}:${candidate.secretKey}:${candidate.tokenUrl}`;
+    if (!unique.has(key)) {
+      unique.set(key, candidate);
+    }
+  }
+
+  return [...unique.values()];
 }
 
 export class BoxtalApiError extends Error {
@@ -156,27 +225,17 @@ async function tryFetchBoxtalToken(
   );
 }
 
-async function getBoxtalAccessToken() {
-  const cached = getCachedToken();
+async function getBoxtalAccessToken(credential: BoxtalCredential) {
+  const cached = getCachedToken(credential.source);
   if (cached) {
     return cached;
   }
 
-  const accessKey = getBoxtalAccessKey();
-  const secretKey = getBoxtalSecretKey();
-  if (!accessKey || !secretKey) {
-    throw new BoxtalApiError(
-      "Missing API credentials (BOXTAL_API_ACCESS_KEY/BOXTAL_API_SECRET_KEY or BOXTAL_ACCESS_KEY/BOXTAL_SECRET_KEY)",
-      400,
-    );
-  }
-
-  const basic = Buffer.from(`${accessKey}:${secretKey}`).toString("base64");
-  const tokenResponse = await tryFetchBoxtalToken(getBoxtalTokenUrl(), basic);
-  tokenCache = {
-    token: tokenResponse.token,
-    expiresAt: Date.now() + Math.max(60, tokenResponse.expiresIn - 60) * 1000,
-  };
+  const basic = Buffer.from(
+    `${credential.accessKey}:${credential.secretKey}`,
+  ).toString("base64");
+  const tokenResponse = await tryFetchBoxtalToken(credential.tokenUrl, basic);
+  setCachedToken(credential.source, tokenResponse.token, tokenResponse.expiresIn);
 
   return tokenResponse.token;
 }
@@ -189,38 +248,89 @@ async function boxtalFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<unknown> {
-  const token = await getBoxtalAccessToken();
-  const headers = new Headers(init.headers || {});
-  headers.set("Authorization", `Bearer ${token}`);
-  headers.set("x-token", token);
-  headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${getBoxtalApiBaseUrl()}${normalizePath(path)}`, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
-
-  const text = await response.text();
-  let payload: unknown = null;
-  try {
-    payload = text ? (JSON.parse(text) as unknown) : null;
-  } catch {
-    payload = text;
-  }
-
-  if (!response.ok) {
+  const candidates = getBoxtalCredentialCandidates();
+  if (candidates.length === 0) {
     throw new BoxtalApiError(
-      `Boxtal API error (${response.status}) on ${normalizePath(path)}`,
-      response.status,
-      payload,
+      "Missing Boxtal credentials. Define BOXTAL_API_* (recommended) or BOXTAL_ACCESS_KEY/BOXTAL_SECRET_KEY.",
+      400,
     );
   }
 
-  return payload;
+  let lastAuthError: BoxtalApiError | null = null;
+
+  for (const candidate of candidates) {
+    let token = "";
+    try {
+      token = await getBoxtalAccessToken(candidate);
+    } catch (error) {
+      lastAuthError =
+        error instanceof BoxtalApiError
+          ? new BoxtalApiError(
+              `${error.message} [source=${candidate.source}]`,
+              error.status,
+              error.detail,
+            )
+          : new BoxtalApiError(
+              `Boxtal token failed (502) [source=${candidate.source}]`,
+              502,
+              error instanceof Error ? error.message : error,
+            );
+      continue;
+    }
+
+    const headers = new Headers(init.headers || {});
+    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("x-token", token);
+    headers.set("Accept", "application/json");
+    if (init.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const response = await fetch(
+      `${getBoxtalApiBaseUrl()}${normalizePath(path)}`,
+      {
+        ...init,
+        headers,
+        cache: "no-store",
+      },
+    );
+
+    const text = await response.text();
+    let payload: unknown = null;
+    try {
+      payload = text ? (JSON.parse(text) as unknown) : null;
+    } catch {
+      payload = text;
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearCachedToken(candidate.source);
+        lastAuthError = new BoxtalApiError(
+          `Boxtal API unauthorized (${response.status}) [source=${candidate.source}]`,
+          response.status,
+          payload,
+        );
+        continue;
+      }
+      throw new BoxtalApiError(
+        `Boxtal API error (${response.status}) on ${normalizePath(path)} [source=${candidate.source}]`,
+        response.status,
+        payload,
+      );
+    }
+
+    return payload;
+  }
+
+  throw new BoxtalApiError(
+    "Boxtal authentication failed for all credential sources. Verify API v3 keys (BOXTAL_API_ACCESS_KEY / BOXTAL_API_SECRET_KEY).",
+    lastAuthError?.status || 401,
+    {
+      attemptedSources: candidates.map((candidate) => candidate.source),
+      lastError: lastAuthError?.detail || lastAuthError?.message,
+    },
+  );
 }
 
 function toNonEmptyString(value: unknown) {

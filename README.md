@@ -27,9 +27,15 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `BOXTAL_ACCESS_KEY`, `BOXTAL_SECRET_KEY`, `BOXTAL_TOKEN_URL`
 - `BOXTAL_API_ACCESS_KEY`, `BOXTAL_API_SECRET_KEY`, `BOXTAL_API_TOKEN_URL`
 - `BOXTAL_MAP_ACCESS_KEY`, `BOXTAL_MAP_SECRET_KEY`, `BOXTAL_MAP_TOKEN_URL`
+- `NEXT_PUBLIC_BOXTAL_MAP_NETWORKS` (optionnel, CSV ex: `MONR_NETWORK,CHRP_NETWORK`)
+- `NEXT_PUBLIC_BOXTAL_MAP_DEBUG=1` (optionnel, debug console map)
 - `BOXTAL_API_BASE_URL` (defaut: `https://api.boxtal.build/shipping`)
 - `BOXTAL_SHIPPING_OFFER_CODE_HOME`, `BOXTAL_SHIPPING_OFFER_CODE_RELAY`
 - `BOXTAL_SHIPPER_*` (expediteur pour creation d'expedition)
+
+Important Boxtal:
+- Utiliser une app `Composant carte` pour `BOXTAL_MAP_*` (checkout point relais)
+- Utiliser une app `API v3` pour `BOXTAL_API_*` (admin expedition / offres transport)
 
 ## Admin / Orders
 
