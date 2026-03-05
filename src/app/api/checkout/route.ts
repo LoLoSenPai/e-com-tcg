@@ -3,6 +3,7 @@ import { getProductsBySlugs } from "@/lib/products";
 import { getStripe } from "@/lib/stripe";
 import { getCustomerFromRequest } from "@/lib/customer-auth";
 import type { ShippingRelayPoint } from "@/lib/types";
+import { getShippingQuotes } from "@/lib/shipping";
 
 type CartItem = {
   slug: string;
@@ -88,8 +89,14 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000";
 
+  const subtotal = lineItems.reduce(
+    (total, item) => total + (item.price_data.unit_amount || 0) * (item.quantity || 0),
+    0,
+  );
+
   const metadata: Record<string, string> = {
     deliveryMode,
+    cartSubtotal: String(subtotal),
   };
 
   if (customer?._id) {
@@ -124,45 +131,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const shippingOptions =
-    deliveryMode === "relay"
-      ? [
-          {
-            shipping_rate_data: {
-              type: "fixed_amount" as const,
-              display_name: "Point relais Boxtal",
-              fixed_amount: { amount: 390, currency: "eur" },
-              delivery_estimate: {
-                minimum: { unit: "business_day" as const, value: 2 },
-                maximum: { unit: "business_day" as const, value: 5 },
-              },
-            },
+  const shippingOptions = getShippingQuotes(deliveryMode, { subtotal }).map(
+    (quote) => ({
+      shipping_rate_data: {
+        type: "fixed_amount" as const,
+        display_name: quote.label,
+        fixed_amount: { amount: quote.amount, currency: "eur" },
+        delivery_estimate: {
+          minimum: {
+            unit: "business_day" as const,
+            value: quote.estimateMinBusinessDays,
           },
-        ]
-      : [
-          {
-            shipping_rate_data: {
-              type: "fixed_amount" as const,
-              display_name: "Livraison standard",
-              fixed_amount: { amount: 490, currency: "eur" },
-              delivery_estimate: {
-                minimum: { unit: "business_day" as const, value: 2 },
-                maximum: { unit: "business_day" as const, value: 5 },
-              },
-            },
+          maximum: {
+            unit: "business_day" as const,
+            value: quote.estimateMaxBusinessDays,
           },
-          {
-            shipping_rate_data: {
-              type: "fixed_amount" as const,
-              display_name: "Livraison express",
-              fixed_amount: { amount: 990, currency: "eur" },
-              delivery_estimate: {
-                minimum: { unit: "business_day" as const, value: 1 },
-                maximum: { unit: "business_day" as const, value: 2 },
-              },
-            },
-          },
-        ];
+        },
+      },
+    }),
+  );
 
   try {
     const session = await stripe.checkout.sessions.create({

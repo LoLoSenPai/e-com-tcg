@@ -5,6 +5,13 @@ import { ObjectId } from "mongodb";
 const collectionName = "orders";
 type DbOrder = Omit<Order, "_id"> & { _id?: ObjectId };
 
+function serializeOrder(doc: DbOrder & { _id?: ObjectId }) {
+  return {
+    ...doc,
+    _id: doc._id ? String(doc._id) : undefined,
+  };
+}
+
 export async function createOrder(order: Order) {
   const db = await getDb();
   await db.collection<DbOrder>(collectionName).insertOne(order as DbOrder);
@@ -18,10 +25,7 @@ export async function getOrders() {
     .find({})
     .sort({ createdAt: -1 })
     .toArray();
-  return docs.map((doc) => ({
-    ...doc,
-    _id: doc._id ? String(doc._id) : undefined,
-  }));
+  return docs.map(serializeOrder);
 }
 
 export async function getOrdersByCustomerEmail(email: string) {
@@ -31,13 +35,13 @@ export async function getOrdersByCustomerEmail(email: string) {
     .find({ customerEmail: email.toLowerCase() })
     .sort({ createdAt: -1 })
     .toArray();
-  return docs.map((doc) => ({
-    ...doc,
-    _id: doc._id ? String(doc._id) : undefined,
-  }));
+  return docs.map(serializeOrder);
 }
 
 export async function getOrderById(id: string) {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
   const db = await getDb();
   const doc = await db
     .collection<DbOrder>(collectionName)
@@ -45,7 +49,23 @@ export async function getOrderById(id: string) {
   if (!doc) {
     return null;
   }
-  return { ...doc, _id: doc._id ? String(doc._id) : undefined };
+  return serializeOrder(doc);
+}
+
+export async function getOrderByStripeSessionId(stripeSessionId: string) {
+  const db = await getDb();
+  const doc = await db
+    .collection<DbOrder>(collectionName)
+    .findOne({ stripeSessionId });
+  return doc ? serializeOrder(doc) : null;
+}
+
+export async function getOrderByBoxtalOrderId(boxtalOrderId: string) {
+  const db = await getDb();
+  const doc = await db
+    .collection<DbOrder>(collectionName)
+    .findOne({ "boxtalShipment.boxtalOrderId": boxtalOrderId });
+  return doc ? serializeOrder(doc) : null;
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
@@ -57,13 +77,16 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   const doc = await db
     .collection<DbOrder>(collectionName)
     .findOne({ _id: new ObjectId(id) });
-  return doc ? { ...doc, _id: doc._id ? String(doc._id) : undefined } : null;
+  return doc ? serializeOrder(doc) : null;
 }
 
 export async function updateOrderFields(
   id: string,
   updates: Partial<Omit<Order, "_id">>,
 ) {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
   const db = await getDb();
   const now = new Date().toISOString();
   await db
@@ -75,7 +98,7 @@ export async function updateOrderFields(
   const doc = await db
     .collection<DbOrder>(collectionName)
     .findOne({ _id: new ObjectId(id) });
-  return doc ? { ...doc, _id: doc._id ? String(doc._id) : undefined } : null;
+  return doc ? serializeOrder(doc) : null;
 }
 
 export async function getOrderStats() {

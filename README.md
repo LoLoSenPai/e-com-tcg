@@ -27,6 +27,7 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `BOXTAL_ACCESS_KEY`, `BOXTAL_SECRET_KEY`, `BOXTAL_TOKEN_URL`
 - `BOXTAL_API_ACCESS_KEY`, `BOXTAL_API_SECRET_KEY`, `BOXTAL_API_TOKEN_URL`
 - `BOXTAL_MAP_ACCESS_KEY`, `BOXTAL_MAP_SECRET_KEY`, `BOXTAL_MAP_TOKEN_URL`
+- `BOXTAL_WEBHOOK_SECRET` (cle de validation de la souscription webhook Boxtal)
 - `NEXT_PUBLIC_BOXTAL_MAP_NETWORKS` (optionnel, CSV ex: `MONR_NETWORK,CHRP_NETWORK`)
 - `NEXT_PUBLIC_BOXTAL_MAP_DEBUG=1` (optionnel, debug console map)
 - `BOXTAL_API_BASE_URL` (defaut: `https://api.boxtal.build/shipping`)
@@ -66,6 +67,9 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 - Listing offres transport admin: `GET /api/admin/boxtal/shipping-offers`
 - Creation expedition: `POST /api/admin/orders/:id/boxtal`
+- Synchronisation manuelle: `PATCH /api/admin/orders/:id/boxtal`
+- Webhook Boxtal: `POST /api/boxtal/webhook`
 - Evenements Boxtal a activer (si abonnement webhook cote Boxtal):
   - `DOCUMENT_CREATED`
   - `TRACKING_CHANGED`
+- Le `BOXTAL_WEBHOOK_SECRET` correspond a la cle de validation de la souscription webhook

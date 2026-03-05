@@ -6,6 +6,11 @@ import type { Product, ShippingRelayPoint } from "@/lib/types";
 import { useCart } from "@/components/cart-context";
 import { formatPrice } from "@/lib/format";
 import { BoxtalRelayPicker } from "@/components/boxtal-relay-picker";
+import {
+  getCheapestShippingQuote,
+  getShippingQuotes,
+  getShippingThresholdMessage,
+} from "@/lib/shipping";
 
 type CartClientProps = {
   products: Product[];
@@ -34,6 +39,16 @@ export function CartClient({ products }: CartClientProps) {
     if (!line.product) return total;
     return total + line.product.price * line.item.quantity;
   }, 0);
+
+  const shippingQuotes = useMemo(
+    () => getShippingQuotes(deliveryMode, { subtotal }),
+    [deliveryMode, subtotal],
+  );
+  const cheapestShipping = useMemo(
+    () => getCheapestShippingQuote(deliveryMode, { subtotal }),
+    [deliveryMode, subtotal],
+  );
+  const estimatedTotal = subtotal + cheapestShipping.amount;
 
   async function handleCheckout() {
     if (deliveryMode === "relay" && !relayPoint) {
@@ -138,6 +153,34 @@ export function CartClient({ products }: CartClientProps) {
                 Point relais Boxtal
               </button>
             </div>
+            <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.03] p-4 text-sm text-slate-600">
+              <p className="font-semibold text-slate-900">Tarifs livraison</p>
+              <div className="mt-3 space-y-2">
+                {shippingQuotes.map((quote) => (
+                  <div
+                    key={quote.code}
+                    className="flex items-start justify-between gap-3 rounded-xl bg-white/70 px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900">{quote.label}</p>
+                      <p className="text-xs text-slate-500">
+                        {quote.description} · {quote.estimateMinBusinessDays} a{" "}
+                        {quote.estimateMaxBusinessDays} jours ouvres
+                      </p>
+                    </div>
+                    <span className="font-semibold text-slate-900">
+                      {quote.isFree ? "Offert" : formatPrice(quote.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                {getShippingThresholdMessage(deliveryMode)}
+                {deliveryMode === "home"
+                  ? " Le choix final standard/express se fait dans Stripe."
+                  : ""}
+              </p>
+            </div>
             {deliveryMode === "relay" ? (
               <div className="mt-4">
                 <BoxtalRelayPicker onSelect={setRelayPoint} />
@@ -194,6 +237,16 @@ export function CartClient({ products }: CartClientProps) {
             <span className="text-sm text-slate-600">Sous-total</span>
             <span className="font-semibold">{formatPrice(subtotal)}</span>
           </div>
+          <div className="space-y-2 rounded-2xl border border-black/10 bg-black/[0.03] p-4 text-sm">
+            {shippingQuotes.map((quote) => (
+              <div key={quote.code} className="flex items-center justify-between gap-3">
+                <span className="text-slate-600">{quote.label}</span>
+                <span className="font-semibold text-slate-900">
+                  {quote.isFree ? "Offert" : formatPrice(quote.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
           <div className="flex items-center justify-between text-sm text-slate-500">
             <span>Mode</span>
             <span>
@@ -204,6 +257,17 @@ export function CartClient({ products }: CartClientProps) {
                 : "Adresse classique"}
             </span>
           </div>
+          <div className="flex items-center justify-between text-sm text-slate-500">
+            <span>Total estime</span>
+            <span className="font-semibold text-slate-900">
+              {formatPrice(estimatedTotal)}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500">
+            {deliveryMode === "home"
+              ? "Base sur l'option la moins chere. Le montant final est confirme dans Stripe."
+              : "Montant final avec le point relais selectionne."}
+          </p>
           <div className="border-t border-black/10 pt-4">
             <button
               type="button"
