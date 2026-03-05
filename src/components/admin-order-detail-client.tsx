@@ -29,6 +29,27 @@ const boxtalStatusStyles: Record<string, string> = {
   CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
+const shipmentCardThemes = {
+  offer: {
+    gradient:
+      "linear-gradient(135deg, rgba(255, 191, 105, 0.22), rgba(255, 246, 222, 0.08))",
+    borderColor: "rgba(255, 191, 105, 0.4)",
+    valueBg: "rgba(255, 191, 105, 0.18)",
+  },
+  carrier: {
+    gradient:
+      "linear-gradient(135deg, rgba(46, 196, 182, 0.22), rgba(11, 18, 32, 0.08))",
+    borderColor: "rgba(46, 196, 182, 0.42)",
+    valueBg: "rgba(46, 196, 182, 0.16)",
+  },
+  tracking: {
+    gradient:
+      "linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(11, 18, 32, 0.08))",
+    borderColor: "rgba(167, 139, 250, 0.42)",
+    valueBg: "rgba(167, 139, 250, 0.16)",
+  },
+} as const;
+
 function stringifyDetail(detail: unknown) {
   if (!detail) return "";
   if (typeof detail === "string") return detail;
@@ -279,7 +300,11 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             {order.customerPhone ? <p>{order.customerPhone}</p> : null}
           </div>
           {order.shippingRelay ? (
-            <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.02] p-3 text-xs text-slate-700">
+            <div className="mt-4 rounded-[22px] border p-4 text-xs text-slate-700 shadow-[0_16px_30px_-24px_rgba(46,196,182,0.55)]" style={{
+              backgroundImage:
+                "linear-gradient(135deg, rgba(46, 196, 182, 0.16), rgba(11, 18, 32, 0.06))",
+              borderColor: "rgba(46, 196, 182, 0.38)",
+            }}>
               <p className="font-semibold">Point relais</p>
               <p>
                 {order.shippingRelay.name} ({order.shippingRelay.code})
@@ -380,7 +405,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           </div>
         ) : null}
         {order.boxtalShipment ? (
-          <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.02] p-4 text-sm text-slate-700">
+          <div className="mt-4 rounded-[26px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.94),rgba(13,23,39,0.82))] p-4 text-sm text-slate-700 shadow-[0_18px_34px_-26px_rgba(2,8,23,0.9)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-900">Expedition active</p>
@@ -398,27 +423,54 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               </span>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-black/10 bg-white/70 p-3">
+              <div
+                className="rounded-[20px] border p-3"
+                style={{
+                  backgroundImage: shipmentCardThemes.offer.gradient,
+                  borderColor: shipmentCardThemes.offer.borderColor,
+                }}
+              >
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                   Offre
                 </p>
-                <p className="mt-1 font-semibold text-slate-900">
+                <p
+                  className="mt-2 rounded-full px-3 py-2 font-semibold text-slate-900"
+                  style={{ backgroundColor: shipmentCardThemes.offer.valueBg }}
+                >
                   {order.boxtalShipment.shippingOfferCode || "-"}
                 </p>
               </div>
-              <div className="rounded-xl border border-black/10 bg-white/70 p-3">
+              <div
+                className="rounded-[20px] border p-3"
+                style={{
+                  backgroundImage: shipmentCardThemes.carrier.gradient,
+                  borderColor: shipmentCardThemes.carrier.borderColor,
+                }}
+              >
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                   Transporteur
                 </p>
-                <p className="mt-1 font-semibold text-slate-900">
+                <p
+                  className="mt-2 rounded-full px-3 py-2 font-semibold text-slate-900"
+                  style={{ backgroundColor: shipmentCardThemes.carrier.valueBg }}
+                >
                   {order.boxtalShipment.carrier || "Boxtal / transporteur a venir"}
                 </p>
               </div>
-              <div className="rounded-xl border border-black/10 bg-white/70 p-3 md:col-span-2">
+              <div
+                className="rounded-[20px] border p-3 md:col-span-2"
+                style={{
+                  backgroundImage: shipmentCardThemes.tracking.gradient,
+                  borderColor: shipmentCardThemes.tracking.borderColor,
+                }}
+              >
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                   Tracking
                 </p>
-                <p className="mt-1 font-semibold text-slate-900">
+                <p
+                  className="mt-2 rounded-full px-3 py-2 font-semibold text-slate-900"
+                  style={{ backgroundColor: shipmentCardThemes.tracking.valueBg }}
+                >
                   {order.boxtalShipment.trackingNumber || "Pas encore disponible"}
                 </p>
               </div>

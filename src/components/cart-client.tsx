@@ -16,6 +16,60 @@ type CartClientProps = {
   products: Product[];
 };
 
+const shippingQuoteThemes: Record<
+  string,
+  {
+    badge: string;
+    accent: string;
+    gradient: string;
+    borderColor: string;
+    priceBg: string;
+    priceColor: string;
+  }
+> = {
+  home_standard: {
+    badge: "Standard",
+    accent: "#ffbf69",
+    gradient:
+      "linear-gradient(135deg, rgba(255, 191, 105, 0.22), rgba(255, 246, 222, 0.08))",
+    borderColor: "rgba(255, 191, 105, 0.4)",
+    priceBg: "rgba(255, 191, 105, 0.18)",
+    priceColor: "#fff6e1",
+  },
+  home_express: {
+    badge: "Express",
+    accent: "#ff7f51",
+    gradient:
+      "linear-gradient(135deg, rgba(255, 127, 81, 0.24), rgba(255, 191, 105, 0.08))",
+    borderColor: "rgba(255, 127, 81, 0.45)",
+    priceBg: "rgba(255, 127, 81, 0.18)",
+    priceColor: "#fff1e8",
+  },
+  relay_boxtal: {
+    badge: "Relais",
+    accent: "#2ec4b6",
+    gradient:
+      "linear-gradient(135deg, rgba(46, 196, 182, 0.22), rgba(11, 18, 32, 0.08))",
+    borderColor: "rgba(46, 196, 182, 0.45)",
+    priceBg: "rgba(46, 196, 182, 0.18)",
+    priceColor: "#e6fff9",
+  },
+};
+
+function getShippingQuoteTheme(code: string) {
+  return (
+    shippingQuoteThemes[code] ?? {
+      badge: "Livraison",
+      accent: "#93a8c6",
+      gradient:
+        "linear-gradient(135deg, rgba(148, 163, 184, 0.18), rgba(11, 18, 32, 0.08))",
+      borderColor: "rgba(148, 163, 184, 0.35)",
+      priceBg: "rgba(148, 163, 184, 0.16)",
+      priceColor: "#f8fafc",
+    }
+  );
+}
+
 export function CartClient({ products }: CartClientProps) {
   const { items, updateItem, removeItem, clear } = useCart();
   const [loading, setLoading] = useState(false);
@@ -153,26 +207,62 @@ export function CartClient({ products }: CartClientProps) {
                 Point relais Boxtal
               </button>
             </div>
-            <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.03] p-4 text-sm text-slate-600">
+            <div className="mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.94),rgba(13,23,39,0.82))] p-4 text-sm text-slate-600 shadow-[0_18px_36px_-28px_rgba(2,8,23,0.9)]">
               <p className="font-semibold text-slate-900">Tarifs livraison</p>
-              <div className="mt-3 space-y-2">
-                {shippingQuotes.map((quote) => (
-                  <div
-                    key={quote.code}
-                    className="flex items-start justify-between gap-3 rounded-xl bg-white/70 px-3 py-2"
-                  >
-                    <div>
-                      <p className="font-semibold text-slate-900">{quote.label}</p>
-                      <p className="text-xs text-slate-500">
-                        {quote.description} · {quote.estimateMinBusinessDays} a{" "}
-                        {quote.estimateMaxBusinessDays} jours ouvres
-                      </p>
+              <div className="mt-3 grid gap-3">
+                {shippingQuotes.map((quote) => {
+                  const theme = getShippingQuoteTheme(quote.code);
+
+                  return (
+                    <div
+                      key={quote.code}
+                      className="rounded-[22px] border p-4 text-white transition hover:-translate-y-0.5"
+                      style={{
+                        backgroundImage: theme.gradient,
+                        borderColor: theme.borderColor,
+                        boxShadow: `0 16px 28px -24px ${theme.accent}`,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                              style={{
+                                borderColor: theme.borderColor,
+                                color: theme.priceColor,
+                                backgroundColor: "rgba(15, 23, 42, 0.26)",
+                              }}
+                            >
+                              {theme.badge}
+                            </span>
+                            {quote.isFree ? (
+                              <span className="rounded-full bg-white/14 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/90">
+                                Offert
+                              </span>
+                            ) : null}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900">{quote.label}</p>
+                            <p className="text-xs text-slate-600">
+                              {quote.description} - {quote.estimateMinBusinessDays} a{" "}
+                              {quote.estimateMaxBusinessDays} jours ouvres
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className="shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold"
+                          style={{
+                            backgroundColor: theme.priceBg,
+                            color: theme.priceColor,
+                          }}
+                        >
+                          {quote.isFree ? "Offert" : formatPrice(quote.amount)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="font-semibold text-slate-900">
-                      {quote.isFree ? "Offert" : formatPrice(quote.amount)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <p className="mt-3 text-xs text-slate-500">
                 {getShippingThresholdMessage(deliveryMode)}
@@ -237,15 +327,37 @@ export function CartClient({ products }: CartClientProps) {
             <span className="text-sm text-slate-600">Sous-total</span>
             <span className="font-semibold">{formatPrice(subtotal)}</span>
           </div>
-          <div className="space-y-2 rounded-2xl border border-black/10 bg-black/[0.03] p-4 text-sm">
-            {shippingQuotes.map((quote) => (
-              <div key={quote.code} className="flex items-center justify-between gap-3">
-                <span className="text-slate-600">{quote.label}</span>
-                <span className="font-semibold text-slate-900">
-                  {quote.isFree ? "Offert" : formatPrice(quote.amount)}
-                </span>
-              </div>
-            ))}
+          <div className="space-y-3 rounded-[26px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.92),rgba(14,24,41,0.8))] p-4 text-sm">
+            {shippingQuotes.map((quote) => {
+              const theme = getShippingQuoteTheme(quote.code);
+
+              return (
+                <div
+                  key={quote.code}
+                  className="flex items-center justify-between gap-3 rounded-[18px] border px-3 py-2.5"
+                  style={{
+                    borderColor: theme.borderColor,
+                    backgroundImage: theme.gradient,
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">{quote.label}</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                      {theme.badge}
+                    </p>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+                    style={{
+                      backgroundColor: theme.priceBg,
+                      color: theme.priceColor,
+                    }}
+                  >
+                    {quote.isFree ? "Offert" : formatPrice(quote.amount)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <div className="flex items-center justify-between text-sm text-slate-500">
             <span>Mode</span>
