@@ -70,7 +70,24 @@ const boxtalScriptSrc =
   "https://maps.boxtal.com/app/v3/assets/dependencies/@boxtal/parcel-point-map/dist/index.global.js";
 
 const mapContainerId = "boxtal-relay-map";
-const boxtalNetworkCodes = new Set<BoxtalNetworkCode>([
+const defaultBoxtalNetworks: Array<{ code: BoxtalNetworkCode }> = [
+  { code: "MONR_NETWORK" },
+  { code: "CHRP_NETWORK" },
+  { code: "UPSE_NETWORK" },
+  { code: "SOGP_NETWORK" },
+  { code: "DHLE_NETWORK" },
+  { code: "COPR_NETWORK" },
+];
+
+const mapConfigNetworksFallback = defaultBoxtalNetworks;
+
+const boxtalDebugNoResponseMessage =
+  "Aucune reponse Boxtal recue. Verifie les cles du composant carte, les reseaux relais et reessaie.";
+
+const boxtalNoResultMessage =
+  "Aucun point relais trouve pour cette adresse. Essaie une autre ville/code postal.";
+
+const boxtalNetworkSet = new Set<BoxtalNetworkCode>([
   "MONR_NETWORK",
   "CHRP_NETWORK",
   "UPSE_NETWORK",
@@ -93,7 +110,7 @@ function readBoxtalNetworkConfig():
     .split(",")
     .map((entry) => entry.trim().toUpperCase())
     .filter((entry): entry is BoxtalNetworkCode =>
-      boxtalNetworkCodes.has(entry as BoxtalNetworkCode),
+      boxtalNetworkSet.has(entry as BoxtalNetworkCode),
     )
     .map((code) => ({ code }));
 
@@ -224,12 +241,11 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           throw new Error("Composant carte Boxtal indisponible");
         }
 
-        const configuredNetworks = readBoxtalNetworkConfig();
+        const configuredNetworks =
+          readBoxtalNetworkConfig() || mapConfigNetworksFallback;
         const mapConfig = {
           locale: "fr" as const,
-          ...(configuredNetworks
-            ? { parcelPointNetworks: configuredNetworks }
-            : {}),
+          parcelPointNetworks: configuredNetworks,
           options: {
             autoSelectNearestParcelPoint: true,
             primaryColor: "#ff6b35",
@@ -274,9 +290,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
             }
 
             if (response.length === 0) {
-              setError(
-                "Aucun point relais trouve pour cette adresse. Essaie une autre ville/code postal.",
-              );
+              setError(boxtalNoResultMessage);
             }
             if (searchTimeoutRef.current) {
               clearTimeout(searchTimeoutRef.current);
@@ -358,9 +372,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
       }
       searchTimeoutRef.current = setTimeout(() => {
         setSearching(false);
-        setError(
-          "Aucune reponse Boxtal recue. Verifie les cles du composant carte et reessaie.",
-        );
+        setError(boxtalDebugNoResponseMessage);
       }, 12000);
     } catch (searchError) {
       setError(
