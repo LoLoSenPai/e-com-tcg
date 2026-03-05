@@ -685,14 +685,14 @@ function buildConfiguredShippingOffers() {
   if (homeCode) {
     offers.push({
       code: homeCode,
-      label: `${homeCode} (domicile env)`,
+      label: `Livraison domicile (${homeCode})`,
     });
   }
 
   if (relayCode) {
     offers.push({
       code: relayCode,
-      label: `${relayCode} (relais env)`,
+      label: `Point relais (${relayCode})`,
     });
   }
 
@@ -856,19 +856,26 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   const recipientEmail = toNonEmptyString(order.customerEmail) || shipper.email;
   const recipientPhone = toNonEmptyString(order.customerPhone) || shipper.phone;
   const isRelayDelivery = Boolean(order.shippingRelay?.code);
-  const recipientLine1 = isRelayDelivery
+  const hasCustomerShippingAddress = Boolean(
+    toNonEmptyString(order.shippingAddress?.line1) &&
+      toNonEmptyString(order.shippingAddress?.postalCode) &&
+      toNonEmptyString(order.shippingAddress?.city),
+  );
+  const useRelayAddressAsDestination =
+    isRelayDelivery && !hasCustomerShippingAddress;
+  const recipientLine1 = useRelayAddressAsDestination
     ? toNonEmptyString(order.shippingRelay?.address?.line1)
     : toNonEmptyString(order.shippingAddress?.line1);
-  const recipientZipCode = isRelayDelivery
+  const recipientZipCode = useRelayAddressAsDestination
     ? toNonEmptyString(order.shippingRelay?.address?.zipCode)
     : toNonEmptyString(order.shippingAddress?.postalCode);
-  const recipientCity = isRelayDelivery
+  const recipientCity = useRelayAddressAsDestination
     ? toNonEmptyString(order.shippingRelay?.address?.city)
     : toNonEmptyString(order.shippingAddress?.city);
-  const recipientCountry = isRelayDelivery
+  const recipientCountry = useRelayAddressAsDestination
     ? toNonEmptyString(order.shippingRelay?.address?.country) || "FR"
     : toNonEmptyString(order.shippingAddress?.country) || "FR";
-  const recipientLine2 = isRelayDelivery
+  const recipientLine2 = useRelayAddressAsDestination
     ? undefined
     : toNonEmptyString(order.shippingAddress?.line2);
 
@@ -912,9 +919,9 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   });
 
   const toAddress = buildPartyAddress({
-    type: isRelayDelivery ? "BUSINESS" : "RESIDENTIAL",
+    type: useRelayAddressAsDestination ? "BUSINESS" : "RESIDENTIAL",
     name: toNonEmptyString(order.customerName) || "Client Returners",
-    company: isRelayDelivery ? order.shippingRelay?.name : undefined,
+    company: useRelayAddressAsDestination ? order.shippingRelay?.name : undefined,
     email: recipientEmail,
     phone: recipientPhone,
     line1: recipientLine1,

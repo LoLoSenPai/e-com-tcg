@@ -20,31 +20,13 @@ type BoxtalShippingOffer = {
   label: string;
 };
 
-type BoxtalProbeStatus = {
-  ok: boolean;
-  status?: number;
-  detail?: string;
-  attempt?: string;
-};
-
-type BoxtalProbeSource = {
-  source: "api" | "default" | "map";
-  configured: boolean;
-  keyHint?: string;
-  tokenUrl?: string;
-  token: BoxtalProbeStatus;
-  shippingOffer: {
-    bearer: BoxtalProbeStatus;
-    basic: BoxtalProbeStatus;
-  };
-};
-
-type BoxtalProbeReport = {
-  timestamp: string;
-  apiBaseUrl: string;
-  probePath: string;
-  sourceOrder: Array<"api" | "default" | "map">;
-  sources: BoxtalProbeSource[];
+const boxtalStatusStyles: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+  CONFIRMED: "bg-sky-100 text-sky-800 border-sky-200",
+  ANNOUNCED: "bg-violet-100 text-violet-800 border-violet-200",
+  IN_TRANSIT: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  DELIVERED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 function stringifyDetail(detail: unknown) {
@@ -71,9 +53,6 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [syncingShipment, setSyncingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
-  const [probeLoading, setProbeLoading] = useState(false);
-  const [probeError, setProbeError] = useState("");
-  const [probeReport, setProbeReport] = useState<BoxtalProbeReport | null>(null);
 
   async function loadOrder() {
     setLoading(true);
@@ -233,28 +212,6 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
     }
   }
 
-  async function runBoxtalProbe() {
-    setProbeLoading(true);
-    setProbeError("");
-    setProbeReport(null);
-    try {
-      const response = await fetch("/api/admin/boxtal/debug-auth");
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(
-          payload?.detail || payload?.error || "Boxtal probe failed",
-        );
-      }
-      setProbeReport(payload as BoxtalProbeReport);
-    } catch (error) {
-      setProbeError(
-        error instanceof Error ? error.message : "Echec diagnostic Boxtal",
-      );
-    } finally {
-      setProbeLoading(false);
-    }
-  }
-
   if (loading && !order) {
     return (
       <div className="manga-panel rounded-[24px] bg-white p-6 text-sm text-slate-500">
@@ -375,7 +332,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             <option value="">Code offre auto (env)</option>
             {shippingOffers.map((offer) => (
               <option key={offer.code} value={offer.code}>
-                {offer.code} - {offer.label}
+                {offer.label}
               </option>
             ))}
           </select>
@@ -397,14 +354,6 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           >
             {syncingShipment ? "Synchronisation..." : "Synchroniser Boxtal"}
           </button>
-          <button
-            type="button"
-            onClick={runBoxtalProbe}
-            disabled={probeLoading}
-            className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {probeLoading ? "Diagnostic..." : "Diagnostiquer Boxtal"}
-          </button>
         </div>
         <p className="mt-2 text-xs text-slate-500">
           {loadingShippingOffers
@@ -413,55 +362,6 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               ? `${shippingOffers.length} offre(s) transport chargee(s).`
               : "Aucune offre chargee (verification API/credentials requise)."}
         </p>
-        {probeError ? (
-          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {probeError}
-          </div>
-        ) : null}
-        {probeReport ? (
-          <div className="mt-3 rounded-2xl border border-black/10 bg-black/[0.02] p-4 text-xs text-slate-700">
-            <p className="font-semibold">Diagnostic Boxtal</p>
-            <p>Timestamp: {new Date(probeReport.timestamp).toLocaleString("fr-FR")}</p>
-            <p>API base URL: {probeReport.apiBaseUrl}</p>
-            <p>Probe path: {probeReport.probePath}</p>
-            <div className="mt-3 space-y-3">
-              {probeReport.sources.map((source) => (
-                <div key={source.source} className="rounded-xl border border-black/10 p-3">
-                  <p className="font-semibold">
-                    Source: {source.source.toUpperCase()}{" "}
-                    {source.configured ? "(configuree)" : "(absente)"}
-                  </p>
-                  {source.keyHint ? <p>Key: {source.keyHint}</p> : null}
-                  {source.tokenUrl ? <p>Token URL: {source.tokenUrl}</p> : null}
-                  <p>
-                    Token: {source.token.ok ? "OK" : "KO"}
-                    {source.token.status ? ` (${source.token.status})` : ""}
-                    {source.token.attempt ? ` [${source.token.attempt}]` : ""}
-                  </p>
-                  {source.token.detail ? <p>Token detail: {source.token.detail}</p> : null}
-                  <p>
-                    Probe API (Bearer): {source.shippingOffer.bearer.ok ? "OK" : "KO"}
-                    {source.shippingOffer.bearer.status
-                      ? ` (${source.shippingOffer.bearer.status})`
-                      : ""}
-                  </p>
-                  {source.shippingOffer.bearer.detail ? (
-                    <p>Bearer detail: {source.shippingOffer.bearer.detail}</p>
-                  ) : null}
-                  <p>
-                    Probe API (Basic): {source.shippingOffer.basic.ok ? "OK" : "KO"}
-                    {source.shippingOffer.basic.status
-                      ? ` (${source.shippingOffer.basic.status})`
-                      : ""}
-                  </p>
-                  {source.shippingOffer.basic.detail ? (
-                    <p>Basic detail: {source.shippingOffer.basic.detail}</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
         {shippingOffersError ? (
           <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
             {shippingOffersError}
@@ -478,37 +378,73 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           </div>
         ) : null}
         {order.boxtalShipment ? (
-          <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.02] p-4 text-xs text-slate-700">
-            <p className="font-semibold">Boxtal</p>
-            <p>ID exp.: {order.boxtalShipment.boxtalOrderId || "-"}</p>
-            <p>Offre: {order.boxtalShipment.shippingOfferCode || "-"}</p>
-            <p>Statut: {order.boxtalShipment.status || "-"}</p>
-            <p>Carrier: {order.boxtalShipment.carrier || "-"}</p>
-            <p>Tracking: {order.boxtalShipment.trackingNumber || "-"}</p>
-            {order.boxtalShipment.trackingUrl ? (
-              <a
-                href={order.boxtalShipment.trackingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-slate-700 underline"
-              >
-                Ouvrir suivi transporteur
-              </a>
-            ) : null}
-            {order.boxtalShipment.labelUrl ? (
+          <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.02] p-4 text-sm text-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
+                <p className="font-semibold text-slate-900">Expedition active</p>
+                <p className="text-xs text-slate-500">
+                  ID Boxtal: {order.boxtalShipment.boxtalOrderId || "-"}
+                </p>
+              </div>
+              <span
+                className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                  boxtalStatusStyles[order.boxtalShipment.status || ""]
+                    || "bg-slate-100 text-slate-700 border-slate-200"
+                }`}
+              >
+                {order.boxtalShipment.status || "En attente"}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-black/10 bg-white/70 p-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Offre
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {order.boxtalShipment.shippingOfferCode || "-"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-black/10 bg-white/70 p-3">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Transporteur
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {order.boxtalShipment.carrier || "Boxtal / transporteur a venir"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-black/10 bg-white/70 p-3 md:col-span-2">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  Tracking
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {order.boxtalShipment.trackingNumber || "Pas encore disponible"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {order.boxtalShipment.trackingUrl ? (
+                <a
+                  href={order.boxtalShipment.trackingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white"
+                >
+                  Ouvrir suivi transporteur
+                </a>
+              ) : null}
+              {order.boxtalShipment.labelUrl ? (
                 <a
                   href={order.boxtalShipment.labelUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-slate-700 underline"
+                  className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900"
                 >
                   Ouvrir etiquette transport
                 </a>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             {order.boxtalShipment.lastError ? (
-              <p className="mt-2 text-rose-700">
+              <p className="mt-3 text-xs text-rose-700">
                 Derniere erreur: {order.boxtalShipment.lastError}
               </p>
             ) : null}
