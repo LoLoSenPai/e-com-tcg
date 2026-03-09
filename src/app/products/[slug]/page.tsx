@@ -7,6 +7,7 @@ import {
   getLanguageFlagEmoji,
 } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { BuyNowButton } from "@/components/buy-now-button";
 import { ProductCard } from "@/components/product-card";
 import type { Metadata } from "next";
 
@@ -152,11 +153,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </span>
             ) : null}
           </div>
-          <AddToCartButton
-            slug={product.slug}
-            label={outOfStock ? "Rupture de stock" : "Ajouter au panier"}
-            disabled={outOfStock}
-          />
+          <div className="flex flex-wrap gap-3">
+            <AddToCartButton
+              slug={product.slug}
+              label={outOfStock ? "Rupture de stock" : "Ajouter au panier"}
+              disabled={outOfStock}
+            />
+            <BuyNowButton slug={product.slug} disabled={outOfStock} />
+          </div>
+          <p className="text-xs text-slate-500">
+            Achat direct en livraison domicile. Pour un point relais ou plusieurs
+            articles, passe par le panier.
+          </p>
           <div className="mt-6 rounded-2xl border border-black/10 bg-[var(--surface)] p-4 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Stock & expedition</p>
             <p className="mt-2">
