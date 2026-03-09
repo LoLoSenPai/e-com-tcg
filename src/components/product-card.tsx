@@ -52,7 +52,14 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </h3>
       </Link>
-      <p className="mt-2 text-sm text-slate-600">
+      <p
+        className="mt-2 min-h-[3.75rem] overflow-hidden text-sm text-slate-600"
+        style={{
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+        }}
+      >
         {product.description}
       </p>
       <div className="mt-4 flex items-center justify-between">

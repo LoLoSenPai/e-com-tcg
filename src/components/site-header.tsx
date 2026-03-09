@@ -171,7 +171,7 @@ export function SiteHeader() {
         >
           <Link href="/" className="group flex items-center gap-2.5 md:gap-3">
             <Image src="/logo-tr.png" alt="Returners Logo" width={120} height={120} />
-            <div className="leading-tight">
+            {/* <div className="leading-tight">
               <p
                 className={`font-display transition-all duration-300 ${
                   isScrolled ? "text-sm md:text-base" : "text-base md:text-lg"
@@ -186,7 +186,7 @@ export function SiteHeader() {
               >
                 Pokemon + One Piece
               </p>
-            </div>
+            </div> */}
           </Link>
 
           <nav className="hidden items-center md:flex">
