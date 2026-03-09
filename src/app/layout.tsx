@@ -70,7 +70,7 @@ export default function RootLayout({
           suppressHydrationWarning
         />
         <CartProvider>
-          <div className="min-h-screen">
+          <div className="site-shell min-h-screen">
             <SiteHeader />
             {children}
             <SiteFooter />

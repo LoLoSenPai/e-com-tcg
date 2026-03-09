@@ -88,8 +88,8 @@ export function CatalogClient({
 
   const gridClassName =
     gridMode === "4"
-      ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      : "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3";
+      ? "grid grid-cols-2 gap-4 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
+      : "grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-3";
 
   return (
     <div className="space-y-8">
@@ -103,15 +103,23 @@ export function CatalogClient({
             <button
               type="button"
               onClick={() => setGridMode("3")}
-              aria-label="Grille 3 colonnes"
-              title="3 colonnes"
+              aria-label="Grille 1 colonne sur mobile, 3 colonnes sur desktop"
+              title="1 colonne mobile / 3 colonnes desktop"
               className={`grid h-9 w-9 place-items-center rounded-md border border-white/20 transition ${
                 gridMode === "3"
                   ? "bg-[var(--accent-2)]"
                   : "bg-white/10 hover:bg-white/20"
               }`}
             >
-              <span className="grid grid-cols-3 gap-0.5">
+              <span className="grid gap-0.5 sm:hidden">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <span
+                    key={`grid-mobile-1-${index}`}
+                    className="h-1.5 w-4 rounded-[2px] bg-white/90"
+                  />
+                ))}
+              </span>
+              <span className="hidden grid-cols-3 gap-0.5 sm:grid">
                 {Array.from({ length: 9 }).map((_, index) => (
                   <span
                     key={`grid-3-${index}`}
@@ -123,15 +131,23 @@ export function CatalogClient({
             <button
               type="button"
               onClick={() => setGridMode("4")}
-              aria-label="Grille 4 colonnes"
-              title="4 colonnes"
+              aria-label="Grille 2 colonnes sur mobile, 4 colonnes sur desktop"
+              title="2 colonnes mobile / 4 colonnes desktop"
               className={`grid h-9 w-9 place-items-center rounded-md border border-white/20 transition ${
                 gridMode === "4"
                   ? "bg-[var(--accent-2)]"
                   : "bg-white/10 hover:bg-white/20"
               }`}
             >
-              <span className="grid grid-cols-4 gap-0.5">
+              <span className="grid grid-cols-2 gap-0.5 sm:hidden">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <span
+                    key={`grid-mobile-2-${index}`}
+                    className="h-1.5 w-2.5 rounded-[2px] bg-white/90"
+                  />
+                ))}
+              </span>
+              <span className="hidden grid-cols-4 gap-0.5 sm:grid">
                 {Array.from({ length: 16 }).map((_, index) => (
                   <span
                     key={`grid-4-${index}`}

@@ -97,14 +97,17 @@
   html {
     scroll-behavior: smooth;
     overflow-y: scroll;
+    min-height: 100%;
   }
 
   body {
+    min-height: 100vh;
     background:
       radial-gradient(circle at top left, rgba(255, 191, 105, 0.3), transparent 52%),
       radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.22), transparent 45%),
       radial-gradient(circle at 25% 70%, rgba(255, 107, 53, 0.18), transparent 55%),
       var(--bg);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: var(--font-body), "Trebuchet MS", sans-serif;
   }
@@ -199,6 +202,16 @@
     transform: translate(8px, 8px);
     box-shadow: 0 0 0 #111827;
   }
+
+  .site-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(255, 191, 105, 0.3), transparent 52%),
+      radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.22), transparent 45%),
+      radial-gradient(circle at 25% 70%, rgba(255, 107, 53, 0.18), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+  }
 }
 
 @keyframes floaty {
@@ -274,7 +287,17 @@
     radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.18), transparent 42%),
     radial-gradient(circle at 22% 72%, rgba(255, 107, 53, 0.14), transparent 52%),
     var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
+}
+
+.theme-dark .site-shell {
+  background:
+    radial-gradient(circle at top left, rgba(255, 191, 105, 0.2), transparent 48%),
+    radial-gradient(circle at 80% 20%, rgba(46, 196, 182, 0.18), transparent 42%),
+    radial-gradient(circle at 22% 72%, rgba(255, 107, 53, 0.14), transparent 52%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 .theme-dark ::selection {
