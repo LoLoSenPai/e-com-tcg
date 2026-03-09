@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
-import { formatLanguageCode, formatPrice } from "@/lib/format";
+import {
+  formatLanguageCode,
+  formatPrice,
+  getLanguageFlagEmoji,
+} from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 
 type ProductCardProps = {
@@ -10,6 +14,7 @@ type ProductCardProps = {
 export function ProductCard({ product }: ProductCardProps) {
   const outOfStock = (product.stock ?? 0) <= 0;
   const franchiseLabel = product.franchise || product.tags?.[0];
+  const languageFlagEmoji = getLanguageFlagEmoji(product.language);
 
   return (
     <div className="card-foil manga-panel manga-card manga-dot group rounded-[24px] bg-white p-4 md:rounded-[28px] md:p-5">
@@ -27,7 +32,19 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
           <span>{franchiseLabel}</span>
           {product.language ? (
-            <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] tracking-[0.15em]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] tracking-[0.15em]">
+              {languageFlagEmoji ? (
+                <span
+                  aria-hidden="true"
+                  className="text-[11px] leading-none md:hidden"
+                  style={{
+                    fontFamily:
+                      '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
+                  }}
+                >
+                  {languageFlagEmoji}
+                </span>
+              ) : null}
               {formatLanguageCode(product.language)}
             </span>
           ) : null}
@@ -35,7 +52,7 @@ export function ProductCard({ product }: ProductCardProps) {
       ) : null}
       <Link href={`/products/${product.slug}`}>
         <div
-          className="manga-dot mt-4 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600 md:mt-6"
+          className="manga-dot mt-4 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[#ffffff] text-center text-sm font-semibold text-slate-600 md:mt-6"
           style={
             product.image
               ? {

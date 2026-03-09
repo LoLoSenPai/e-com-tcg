@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, getProducts } from "@/lib/products";
-import { formatLanguageCode, formatPrice } from "@/lib/format";
+import {
+  formatLanguageCode,
+  formatPrice,
+  getLanguageFlagEmoji,
+} from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductCard } from "@/components/product-card";
 import type { Metadata } from "next";
@@ -39,6 +43,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!product) {
     notFound();
   }
+  const languageFlagEmoji = getLanguageFlagEmoji(product.language);
   const outOfStock = (product.stock ?? 0) <= 0;
   const products = await getProducts();
   const related = products
@@ -115,7 +120,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 {product.franchise}
               </span>
               {product.language ? (
-                <span className="inline-flex w-fit rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                  {languageFlagEmoji ? (
+                    <span
+                      aria-hidden="true"
+                      className="text-sm leading-none md:hidden"
+                      style={{
+                        fontFamily:
+                          '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
+                      }}
+                    >
+                      {languageFlagEmoji}
+                    </span>
+                  ) : null}
                   {formatLanguageCode(product.language)}
                 </span>
               ) : null}
