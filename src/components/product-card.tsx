@@ -12,7 +12,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const franchiseLabel = product.franchise || product.tags?.[0];
 
   return (
-    <div className="card-foil manga-panel manga-card manga-dot group rounded-[28px] bg-white p-5">
+    <div className="card-foil manga-panel manga-card manga-dot group rounded-[24px] bg-white p-4 md:rounded-[28px] md:p-5">
       <div className="flex items-start justify-between gap-2">
         <span className="rounded-full border border-black/10 bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold text-slate-700">
           {product.category}
@@ -35,7 +35,7 @@ export function ProductCard({ product }: ProductCardProps) {
       ) : null}
       <Link href={`/products/${product.slug}`}>
         <div
-          className="manga-dot mt-6 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600"
+          className="manga-dot mt-4 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[linear-gradient(130deg,rgba(255,107,53,0.15),rgba(46,196,182,0.25))] text-center text-sm font-semibold text-slate-600 md:mt-6"
           style={
             product.image
               ? {
@@ -48,22 +48,31 @@ export function ProductCard({ product }: ProductCardProps) {
         >
           {!product.image ? "Booster art preview" : ""}
         </div>
-        <h3 className="mt-4 text-lg font-semibold text-slate-900">
+        <h3
+          className="mt-4 min-h-[4.75rem] overflow-hidden text-[1.05rem] font-semibold leading-tight text-slate-900 md:min-h-[3.5rem] md:text-lg"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
           {product.name}
         </h3>
       </Link>
-      <p
-        className="mt-2 min-h-[3.75rem] overflow-hidden text-sm text-slate-600"
-        style={{
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-        }}
-      >
-        {product.description}
-      </p>
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-lg font-semibold text-slate-900">
+      <div className="mt-2 hidden md:block">
+        <p
+          className="min-h-[3.75rem] overflow-hidden text-sm text-slate-600"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {product.description}
+        </p>
+      </div>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <span className="shrink-0 text-lg font-semibold text-slate-900">
           {formatPrice(product.price)}
         </span>
         <AddToCartButton
