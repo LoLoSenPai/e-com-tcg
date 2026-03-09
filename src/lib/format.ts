@@ -7,10 +7,10 @@ export function formatPrice(value: number) {
 }
 
 const languageCodeMap: Record<string, string> = {
-  Francais: "FR",
-  Japonnais: "JP",
-  Coreen: "KR",
-  Chinois: "CN",
+  Francais: "🇫🇷 FR",
+  Japonnais: "🇯🇵 JP",
+  Coreen: "🇰🇷 KR",
+  Chinois: "🇨🇳 CN",
 };
 
 export function formatLanguageCode(language?: string) {

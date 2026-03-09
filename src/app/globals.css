@@ -198,9 +198,18 @@
     will-change: transform;
   }
 
-  .manga-card:hover {
-    transform: translate(8px, 8px);
-    box-shadow: 0 0 0 #111827;
+  @media (hover: hover) and (pointer: fine) {
+    .manga-card:hover {
+      transform: translate(8px, 8px);
+      box-shadow: 0 0 0 #111827;
+    }
+  }
+
+  @media (hover: none) {
+    .manga-card:active {
+      transform: translate(4px, 4px) scale(0.99);
+      box-shadow: 2px 2px 0 #111827;
+    }
   }
 
   .site-shell {
@@ -340,8 +349,16 @@
   opacity: 0.12;
 }
 
-.theme-dark .manga-card:hover {
-  box-shadow: 0 0 0 #ffbf69;
+@media (hover: hover) and (pointer: fine) {
+  .theme-dark .manga-card:hover {
+    box-shadow: 0 0 0 #ffbf69;
+  }
+}
+
+@media (hover: none) {
+  .theme-dark .manga-card:active {
+    box-shadow: 2px 2px 0 #ffbf69;
+  }
 }
 
 .theme-dark .card-foil::after {

@@ -49,7 +49,7 @@ export function ProductCard({ product }: ProductCardProps) {
           {!product.image ? "Booster art preview" : ""}
         </div>
         <h3
-          className="mt-4 min-h-[4.75rem] overflow-hidden text-[1.05rem] font-semibold leading-tight text-slate-900 md:min-h-[3.5rem] md:text-lg"
+          className="mt-4 h-[3.95rem] overflow-hidden text-[1.05rem] font-semibold leading-[1.25] text-slate-900 md:h-[4.2rem] md:text-lg"
           style={{
             display: "-webkit-box",
             WebkitLineClamp: 3,
