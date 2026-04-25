@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
 import { getOrderById, updateOrderFields } from "@/lib/orders";
-import { sendOrderEmail } from "@/lib/email";
+import { sendTrackedEmail } from "@/lib/email";
+import { getEmailEventsByOrderId } from "@/lib/email-events";
+import { buildTrackingEmail } from "@/lib/email-templates";
 import type { OrderStatus } from "@/lib/types";
 
 function isAuthorized(request: NextRequest) {
@@ -34,7 +36,8 @@ export async function GET(
   if (!order) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ order });
+  const emailEvents = await getEmailEventsByOrderId(id);
+  return NextResponse.json({ order, emailEvents });
 }
 
 export async function PATCH(
@@ -90,17 +93,17 @@ export async function PATCH(
 
   if (payload.status === "shipped" && updated.customerEmail) {
     try {
-      await sendOrderEmail({
+      const email = buildTrackingEmail(updated);
+      await sendTrackedEmail({
+        type: "shipping_tracking",
+        orderId: updated._id,
+        stripeSessionId: updated.stripeSessionId,
         to: updated.customerEmail,
-        subject: "Votre commande a ete expediee",
-        html:
-          "<p>Bonne nouvelle ! Votre commande est expediee.</p>" +
-          (tracking?.trackingUrl
-            ? `<p>Suivi: <a href="${tracking.trackingUrl}">${tracking.trackingUrl}</a></p>`
-            : ""),
+        subject: email.subject,
+        html: email.html,
       });
     } catch {
-      // Ignore email failures in admin flow.
+      // Non-blocking: the email_events collection records the failure.
     }
   }
 

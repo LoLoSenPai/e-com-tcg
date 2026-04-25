@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProductsBySlugs } from "@/lib/products";
 import { getStripe } from "@/lib/stripe";
 import { getCustomerFromRequest } from "@/lib/customer-auth";
-import type { ShippingRelayPoint } from "@/lib/types";
+import type { CheckoutSessionItem, ShippingRelayPoint } from "@/lib/types";
 import { getShippingQuotes } from "@/lib/shipping";
+import { createCheckoutSessionRecord } from "@/lib/checkout-sessions";
 
 type CartItem = {
   slug: string;
@@ -34,9 +35,20 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+  if (!process.env.MONGODB_URI) {
+    return NextResponse.json(
+      { error: "Missing MONGODB_URI" },
+      { status: 500 },
+    );
+  }
 
   const items = Array.isArray(body.items)
-    ? body.items.filter((item) => item.quantity > 0)
+    ? body.items
+        .map((item) => ({
+          slug: String(item.slug || "").trim(),
+          quantity: Math.floor(Number(item.quantity)),
+        }))
+        .filter((item) => item.slug && item.quantity > 0)
     : [];
   if (items.length === 0) {
     return NextResponse.json({ error: "Empty cart" }, { status: 400 });
@@ -59,27 +71,29 @@ export async function POST(request: NextRequest) {
   const products = await getProductsBySlugs(slugs);
   const productMap = new Map(products.map((product) => [product.slug, product]));
 
-  let lineItems;
+  let checkoutItems: CheckoutSessionItem[];
   try {
-    lineItems = items.map((item) => {
+    checkoutItems = items.map((item) => {
       const product = productMap.get(item.slug);
       if (!product) {
         throw new Error(`Product not found: ${item.slug}`);
       }
+      const stock = product.stock ?? 0;
+      if (stock <= 0 || item.quantity > stock) {
+        throw new Error(`Stock insuffisant pour ${product.name}`);
+      }
       return {
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
         quantity: item.quantity,
-        price_data: {
-          currency: "eur",
-          unit_amount: product.price,
-          product_data: {
-            name: product.name,
-            description: product.description,
-          },
-        },
+        unitAmount: product.price,
       };
     });
-  } catch {
-    return NextResponse.json({ error: "Invalid cart items" }, { status: 400 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Invalid cart items";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   const stripe = getStripe();
@@ -89,10 +103,21 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000";
 
-  const subtotal = lineItems.reduce(
-    (total, item) => total + (item.price_data.unit_amount || 0) * (item.quantity || 0),
+  const subtotal = checkoutItems.reduce(
+    (total, item) => total + item.unitAmount * item.quantity,
     0,
   );
+  const lineItems = checkoutItems.map((item) => ({
+    quantity: item.quantity,
+    price_data: {
+      currency: "eur",
+      unit_amount: item.unitAmount,
+      product_data: {
+        name: item.name,
+        description: item.description,
+      },
+    },
+  }));
 
   const metadata: Record<string, string> = {
     deliveryMode,
@@ -155,7 +180,7 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
-      success_url: `${origin}/checkout/success`,
+      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/cart?cancel=1`,
       customer_email: customer?.email || undefined,
       metadata,
@@ -166,6 +191,18 @@ export async function POST(request: NextRequest) {
       phone_number_collection: {
         enabled: true,
       },
+    });
+
+    await createCheckoutSessionRecord({
+      stripeSessionId: session.id,
+      stripeSessionUrl: session.url,
+      status: "created",
+      customerId: customer?._id,
+      customerEmail: customer?.email,
+      deliveryMode,
+      shippingRelay: relayPoint || undefined,
+      cartSubtotal: subtotal,
+      items: checkoutItems,
     });
 
     return NextResponse.json({ url: session.url });

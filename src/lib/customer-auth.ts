@@ -6,7 +6,13 @@ export const customerCookieName = "customer_session";
 const maxAgeSeconds = 60 * 60 * 24 * 30;
 
 function getSecret() {
-  return process.env.CUSTOMER_SESSION_SECRET || process.env.ADMIN_TOKEN || "dev-secret";
+  if (process.env.CUSTOMER_SESSION_SECRET) {
+    return process.env.CUSTOMER_SESSION_SECRET;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    return process.env.ADMIN_TOKEN || "dev-secret";
+  }
+  throw new Error("Missing CUSTOMER_SESSION_SECRET.");
 }
 
 function sign(value: string) {

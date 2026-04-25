@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Order, OrderStatus } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
+import type { EmailEvent, Order, OrderStatus } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -74,8 +74,14 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [syncingShipment, setSyncingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
+  const [emailEvents, setEmailEvents] = useState<EmailEvent[]>([]);
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [sendingEmailType, setSendingEmailType] = useState<
+    "order_confirmation" | "shipping_tracking" | null
+  >(null);
 
-  async function loadOrder() {
+  const loadOrder = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/orders/${id}`);
@@ -84,6 +90,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
         throw new Error(payload.error || "Load failed");
       }
       setOrder(payload.order);
+      setEmailEvents(payload.emailEvents || []);
       setTrackingCarrier(payload.order?.shippingTracking?.carrier || "");
       setTrackingNumber(payload.order?.shippingTracking?.trackingNumber || "");
       setTrackingUrl(payload.order?.shippingTracking?.trackingUrl || "");
@@ -95,9 +102,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [id]);
 
-  async function loadShippingOffers() {
+  const loadShippingOffers = useCallback(async () => {
     setLoadingShippingOffers(true);
     setShippingOffersError("");
     try {
@@ -124,12 +131,12 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
     } finally {
       setLoadingShippingOffers(false);
     }
-  }
+  }, [order?.boxtalShipment?.shippingOfferCode]);
 
   useEffect(() => {
     loadOrder();
     loadShippingOffers();
-  }, [id]);
+  }, [loadOrder, loadShippingOffers]);
 
   async function updateStatus(status: OrderStatus) {
     await fetch(`/api/admin/orders/${id}`, {
@@ -232,6 +239,37 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
       );
     } finally {
       setSyncingShipment(false);
+    }
+  }
+
+  async function handleSendEmail(
+    type: "order_confirmation" | "shipping_tracking",
+  ) {
+    setSendingEmailType(type);
+    setEmailMessage("");
+    setEmailError("");
+    try {
+      const response = await fetch(`/api/admin/orders/${id}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Email failed");
+      }
+      setEmailMessage(
+        type === "order_confirmation"
+          ? "Email de confirmation renvoye."
+          : "Email de suivi renvoye.",
+      );
+      await loadOrder();
+    } catch (error) {
+      setEmailError(
+        error instanceof Error ? error.message : "Echec envoi email",
+      );
+    } finally {
+      setSendingEmailType(null);
     }
   }
 
@@ -343,6 +381,64 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                 : " -"}
             </p>
           </div>
+        </div>
+      </div>
+
+      <div className="manga-panel rounded-[24px] bg-white p-6">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          Emails client
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => handleSendEmail("order_confirmation")}
+            disabled={!order.customerEmail || sendingEmailType !== null}
+            className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sendingEmailType === "order_confirmation"
+              ? "Envoi..."
+              : "Renvoyer confirmation"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSendEmail("shipping_tracking")}
+            disabled={!order.customerEmail || sendingEmailType !== null}
+            className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sendingEmailType === "shipping_tracking"
+              ? "Envoi..."
+              : "Renvoyer suivi"}
+          </button>
+        </div>
+        {emailMessage ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            {emailMessage}
+          </div>
+        ) : null}
+        {emailError ? (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {emailError}
+          </div>
+        ) : null}
+        <div className="mt-4 space-y-2 text-xs text-slate-600">
+          {emailEvents.map((event) => (
+            <div
+              key={event._id || `${event.type}-${event.createdAt}`}
+              className="rounded-xl border border-black/10 bg-white px-3 py-2"
+            >
+              <p className="font-semibold text-slate-900">
+                {event.type} - {event.status}
+              </p>
+              <p>
+                {new Date(event.createdAt).toLocaleString("fr-FR")} -{" "}
+                {event.to || "sans destinataire"}
+              </p>
+              {event.error ? <p className="text-rose-700">{event.error}</p> : null}
+            </div>
+          ))}
+          {emailEvents.length === 0 ? (
+            <p>Aucun evenement email enregistre.</p>
+          ) : null}
         </div>
       </div>
 

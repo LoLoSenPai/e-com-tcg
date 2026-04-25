@@ -961,19 +961,6 @@ function buildShipmentPayload(order: Order, overrideOfferCode?: string) {
   } satisfies BoxtalShipmentRequestPayload;
 }
 
-function toShippingOffer(item: unknown): BoxtalShippingOfferItem | null {
-  if (!isRecord(item)) {
-    return null;
-  }
-  const code = toNonEmptyString(item.code || item.shippingOfferCode || item.id);
-  if (!code) {
-    return null;
-  }
-  const label =
-    toNonEmptyString(item.label || item.name || item.description) || code;
-  return { code, label };
-}
-
 export async function getBoxtalShippingOffers() {
   return buildConfiguredShippingOffers();
 }

@@ -24,6 +24,7 @@ Copie `.env.example` en `.env.local` puis renseigne:
 - `NEXT_PUBLIC_SITE_URL` (optionnel en dev)
 - `RESEND_API_KEY` (email)
 - `EMAIL_FROM` (email)
+- `BLOB_READ_WRITE_TOKEN` (upload images en production Vercel Blob)
 - `BOXTAL_ACCESS_KEY`, `BOXTAL_SECRET_KEY`, `BOXTAL_TOKEN_URL`
 - `BOXTAL_API_ACCESS_KEY`, `BOXTAL_API_SECRET_KEY`, `BOXTAL_API_TOKEN_URL`
 - `BOXTAL_MAP_ACCESS_KEY`, `BOXTAL_MAP_SECRET_KEY`, `BOXTAL_MAP_TOKEN_URL`
@@ -44,6 +45,7 @@ Important Boxtal:
 - Produits: `/admin` (CRUD produits, upload image, seed, migration)
 - Commandes: `/admin/orders`
 - Detail commande: creation expedition Boxtal depuis `/admin/orders/:id`
+- Healthcheck prod: `/api/admin/health` (session admin requise, ne renvoie pas les secrets)
 
 ## Compte client
 

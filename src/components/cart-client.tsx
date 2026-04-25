@@ -75,6 +75,7 @@ export function CartClient({ products }: CartClientProps) {
   const [loading, setLoading] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState<"home" | "relay">("home");
   const [relayPoint, setRelayPoint] = useState<ShippingRelayPoint | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
   const searchParams = useSearchParams();
   const checkoutSuccess = searchParams.get("success");
   const checkoutCancel = searchParams.get("cancel");
@@ -105,8 +106,9 @@ export function CartClient({ products }: CartClientProps) {
   const estimatedTotal = subtotal + cheapestShipping.amount;
 
   async function handleCheckout() {
+    setCheckoutError("");
     if (deliveryMode === "relay" && !relayPoint) {
-      alert("Selectionne un point relais avant de continuer.");
+      setCheckoutError("Selectionne un point relais avant de continuer.");
       return;
     }
 
@@ -128,12 +130,11 @@ export function CartClient({ products }: CartClientProps) {
         throw new Error(payload.error || "Checkout failed");
       }
     } catch (error) {
-      console.error(error);
       const message =
         error instanceof Error
           ? error.message
           : "Impossible de lancer le checkout pour le moment.";
-      alert(message);
+      setCheckoutError(message);
     } finally {
       setLoading(false);
     }
@@ -171,6 +172,11 @@ export function CartClient({ products }: CartClientProps) {
       {checkoutCancel ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           Paiement annule. Ton panier est toujours la.
+        </div>
+      ) : null}
+      {checkoutError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          {checkoutError}
         </div>
       ) : null}
 
@@ -243,8 +249,8 @@ export function CartClient({ products }: CartClientProps) {
                             ) : null}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">{quote.label}</p>
-                            <p className="text-xs text-slate-600">
+                            <p className="font-semibold text-white">{quote.label}</p>
+                            <p className="text-xs text-slate-200">
                               {quote.description} - {quote.estimateMinBusinessDays} a{" "}
                               {quote.estimateMaxBusinessDays} jours ouvres
                             </p>
@@ -341,8 +347,8 @@ export function CartClient({ products }: CartClientProps) {
                   }}
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-900">{quote.label}</p>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                    <p className="font-semibold text-white">{quote.label}</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">
                       {theme.badge}
                     </p>
                   </div>

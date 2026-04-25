@@ -35,7 +35,7 @@ export function AccountAuthForm({ mode }: AccountAuthFormProps) {
         throw new Error(payload.error || "Auth failed");
       }
       window.location.href = "/account";
-    } catch (err) {
+    } catch {
       setError(mode === "login" ? "Connexion impossible." : "Inscription impossible.");
     } finally {
       setLoading(false);

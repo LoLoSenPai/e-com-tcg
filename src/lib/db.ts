@@ -1,22 +1,18 @@
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI;
-
-if (!uri) {
-  console.warn(
-    "MONGODB_URI missing: using local sample data for products and cart.",
-  );
-}
-
 declare global {
-  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
 let clientPromise: Promise<MongoClient> | undefined;
 let hasLoggedError = false;
 
-if (uri) {
+function getClientPromise() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error("MongoDB client not initialized.");
+  }
+
   if (!global._mongoClientPromise) {
     const client = new MongoClient(uri, {
       serverSelectionTimeoutMS: 5000,
@@ -25,14 +21,12 @@ if (uri) {
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
+  return clientPromise;
 }
 
 async function getClient() {
-  if (!clientPromise) {
-    throw new Error("MongoDB client not initialized.");
-  }
   try {
-    return await clientPromise;
+    return await (clientPromise || getClientPromise());
   } catch (error) {
     if (!hasLoggedError) {
       console.warn("MongoDB connection failed, retrying on next request.");

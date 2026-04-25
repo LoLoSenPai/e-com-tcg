@@ -14,8 +14,11 @@ function serializeOrder(doc: DbOrder & { _id?: ObjectId }) {
 
 export async function createOrder(order: Order) {
   const db = await getDb();
-  await db.collection<DbOrder>(collectionName).insertOne(order as DbOrder);
-  return order;
+  const result = await db.collection<DbOrder>(collectionName).insertOne(order as DbOrder);
+  return {
+    ...order,
+    _id: String(result.insertedId),
+  };
 }
 
 export async function getOrders() {

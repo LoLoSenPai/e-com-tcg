@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import { sampleProducts } from "@/lib/sample-data";
-import type { Product } from "@/lib/types";
+import type { CheckoutSessionItem, Product, StockAdjustment } from "@/lib/types";
 
 const collectionName = "products";
 
@@ -114,6 +114,32 @@ export async function deleteProductBySlug(slug: string) {
   const doc = await db.collection<Product>(collectionName).findOne({ slug });
   await db.collection<Product>(collectionName).deleteOne({ slug });
   return doc ? normalizeProduct(doc) : null;
+}
+
+export async function decrementProductStocks(
+  items: Array<Pick<CheckoutSessionItem, "slug" | "quantity">>,
+): Promise<StockAdjustment[]> {
+  const db = await getDb();
+  const adjustments: StockAdjustment[] = [];
+
+  for (const item of items) {
+    const result = await db.collection<Product>(collectionName).updateOne(
+      { slug: item.slug, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+    );
+
+    adjustments.push({
+      slug: item.slug,
+      quantity: item.quantity,
+      applied: result.modifiedCount === 1,
+      reason:
+        result.modifiedCount === 1
+          ? undefined
+          : "Stock insuffisant ou produit introuvable au moment du paiement.",
+    });
+  }
+
+  return adjustments;
 }
 
 export async function seedProducts() {

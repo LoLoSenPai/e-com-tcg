@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "boxtal-doc-main.js",
+    "map-auth.html",
+    "map-auth-fr.html",
+    "api-v3.json",
+    "products.json",
   ]),
 ]);
 

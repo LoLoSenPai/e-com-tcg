@@ -49,19 +49,22 @@ function MoonIcon() {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+    return document.documentElement.classList.contains("theme-dark")
+      ? "dark"
+      : "light";
+  });
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(storageKey);
-    const initialTheme: Theme =
-      stored === "light" || stored === "dark"
-        ? stored
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   function handleToggle() {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";

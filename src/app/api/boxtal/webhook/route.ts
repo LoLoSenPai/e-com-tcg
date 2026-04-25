@@ -7,7 +7,9 @@ import {
   getOrderByStripeSessionId,
   updateOrderFields,
 } from "@/lib/orders";
-import { sendOrderEmail } from "@/lib/email";
+import { sendTrackedEmail } from "@/lib/email";
+import { buildTrackingEmail } from "@/lib/email-templates";
+import { beginWebhookEvent, updateWebhookEvent } from "@/lib/webhook-events";
 import type { Order } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -121,17 +123,23 @@ async function maybeSendTrackingEmail(order: Order, shipment: ShipmentPatchInput
     return;
   }
 
-  const trackingText = shipment.trackingNumber || "Disponible";
-  const trackingLink = shipment.trackingUrl
-    ? `<p>Suivi: <a href="${shipment.trackingUrl}">${shipment.trackingUrl}</a></p>`
-    : "";
+  const email = buildTrackingEmail({
+    ...order,
+    shippingTracking: {
+      carrier: shipment.carrier || order.shippingTracking?.carrier,
+      trackingNumber:
+        shipment.trackingNumber || order.shippingTracking?.trackingNumber,
+      trackingUrl: shipment.trackingUrl || order.shippingTracking?.trackingUrl,
+    },
+  });
 
-  await sendOrderEmail({
+  await sendTrackedEmail({
+    type: "shipping_tracking",
+    orderId: order._id,
+    stripeSessionId: order.stripeSessionId,
     to: order.customerEmail,
-    subject: "Votre commande Returners est en route",
-    html: `<p>Bonjour${
-      order.customerName ? ` ${order.customerName}` : ""
-    },</p><p>Votre commande est en cours d'expedition.</p><p>Numero de suivi: ${trackingText}</p>${trackingLink}`,
+    subject: email.subject,
+    html: email.html,
   });
 }
 
@@ -168,13 +176,28 @@ export async function POST(request: Request) {
   const eventType = readString(payload.type);
   const shipmentExternalId = readString(payload.shipmentExternalId);
   const boxtalOrderId = readString(payload.shippingOrderId);
+  const eventId =
+    readString(payload.id) ||
+    `${eventType || "boxtal-event"}:${shipmentExternalId || boxtalOrderId || rawPayload.slice(0, 64)}`;
+
+  const begin = await beginWebhookEvent({
+    provider: "boxtal",
+    eventId,
+    eventType: eventType || "unknown",
+    objectId: shipmentExternalId || boxtalOrderId,
+  });
+  if (!begin.inserted && begin.event?.status === "processed") {
+    return NextResponse.json({ received: true });
+  }
 
   if (!shipmentExternalId && !boxtalOrderId) {
+    await updateWebhookEvent("boxtal", eventId, "ignored");
     return NextResponse.json({ received: true, ignored: "Missing identifiers" });
   }
 
   const order = await resolveOrder(shipmentExternalId, boxtalOrderId);
   if (!order?._id) {
+    await updateWebhookEvent("boxtal", eventId, "ignored");
     return NextResponse.json({ received: true, ignored: "Order not found" });
   }
 
@@ -190,6 +213,8 @@ export async function POST(request: Request) {
     } catch {
       // Non-blocking: Boxtal webhook should remain acknowledged even if email fails.
     }
+
+    await updateWebhookEvent("boxtal", eventId, "processed");
 
     return NextResponse.json({
       received: true,
@@ -210,6 +235,7 @@ export async function POST(request: Request) {
         updatedAt: new Date().toISOString(),
       },
     });
+    await updateWebhookEvent("boxtal", eventId, "failed", message);
 
     return NextResponse.json(
       {

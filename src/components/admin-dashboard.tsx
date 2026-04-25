@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Admin previews must support local and Blob URLs entered from the CMS. */
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
@@ -20,6 +22,12 @@ type FormState = {
   tags: string;
   stock: string;
   image: string;
+};
+
+type HealthPayload = {
+  ok: boolean;
+  checkedAt: string;
+  checks: Record<string, { ok: boolean; label: string; detail?: string }>;
 };
 
 const emptyForm: FormState = {
@@ -48,6 +56,9 @@ export function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingDeleteSlug, setPendingDeleteSlug] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthPayload | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
   const allLanguageOptions = useMemo(
     () =>
       Array.from(
@@ -192,7 +203,6 @@ export function AdminDashboard() {
   }
 
   async function handleDelete(slug: string) {
-    if (!confirm("Supprimer ce produit ?")) return;
     setLoading(true);
     setStatus("");
     try {
@@ -204,6 +214,7 @@ export function AdminDashboard() {
         throw new Error(data.error || "Delete failed");
       }
       setStatus("Produit supprime.");
+      setPendingDeleteSlug(null);
       await loadProducts();
     } catch {
       setStatus("Echec de suppression.");
@@ -280,6 +291,23 @@ export function AdminDashboard() {
     window.location.href = "/admin/login";
   }
 
+  async function loadHealth() {
+    setHealthLoading(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/health");
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Health failed");
+      }
+      setHealth(payload);
+    } catch {
+      setStatus("Healthcheck impossible.");
+    } finally {
+      setHealthLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -292,12 +320,20 @@ export function AdminDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <a
+          <Link
             href="/admin/orders"
             className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
           >
             Orders
-          </a>
+          </Link>
+          <button
+            type="button"
+            onClick={loadHealth}
+            disabled={healthLoading}
+            className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827]"
+          >
+            {healthLoading ? "Check..." : "Health"}
+          </button>
           {showDevTools ? (
             <button
               type="button"
@@ -327,6 +363,34 @@ export function AdminDashboard() {
           </button>
         </div>
       </div>
+
+      {health ? (
+        <div
+          className={`manga-panel rounded-[24px] bg-white p-4 text-sm ${
+            health.ok ? "text-emerald-800" : "text-rose-800"
+          }`}
+        >
+          <p className="font-semibold">
+            Healthcheck {health.ok ? "OK" : "a corriger"} -{" "}
+            {new Date(health.checkedAt).toLocaleString("fr-FR")}
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            {Object.entries(health.checks).map(([key, check]) => (
+              <div
+                key={key}
+                className="rounded-xl border border-black/10 bg-white px-3 py-2"
+              >
+                <p className="font-semibold text-slate-900">
+                  {check.ok ? "OK" : "KO"} - {check.label}
+                </p>
+                {check.detail ? (
+                  <p className="text-xs text-slate-600">{check.detail}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
@@ -385,13 +449,37 @@ export function AdminDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(product.slug)}
+                      onClick={() => setPendingDeleteSlug(product.slug)}
                       className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white"
                     >
                       Delete
                     </button>
                   </div>
                 </div>
+                {pendingDeleteSlug === product.slug ? (
+                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                    <p className="font-semibold">
+                      Confirmer la suppression de ce produit ?
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(product.slug)}
+                        disabled={loading}
+                        className="rounded-full bg-rose-700 px-3 py-1 font-semibold text-white"
+                      >
+                        Supprimer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDeleteSlug(null)}
+                        className="rounded-full border border-rose-300 px-3 py-1 font-semibold"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
             {!loading && filtered.length === 0 ? (

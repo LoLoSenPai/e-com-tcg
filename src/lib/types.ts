@@ -20,8 +20,10 @@ export type CartItem = {
 };
 
 export type OrderStatus = "paid" | "preparation" | "shipped" | "delivered";
+export type DeliveryMode = "home" | "relay";
 
 export type OrderItem = {
+  slug?: string;
   name: string;
   quantity: number;
   unitAmount: number;
@@ -55,6 +57,13 @@ export type BoxtalShipment = {
   lastError?: string;
 };
 
+export type StockAdjustment = {
+  slug: string;
+  quantity: number;
+  applied: boolean;
+  reason?: string;
+};
+
 export type Order = {
   _id?: string;
   stripeSessionId: string;
@@ -84,6 +93,7 @@ export type Order = {
   boxtalShipment?: BoxtalShipment;
   shippingRelay?: ShippingRelayPoint;
   shippedAt?: string;
+  stockAdjustments?: StockAdjustment[];
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -103,6 +113,65 @@ export type Customer = {
     state?: string;
     country?: string;
   };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CheckoutSessionItem = {
+  slug: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  unitAmount: number;
+};
+
+export type CheckoutSessionRecord = {
+  _id?: string;
+  stripeSessionId: string;
+  stripeSessionUrl?: string | null;
+  status: "created" | "paid" | "order_created" | "expired";
+  customerId?: string;
+  customerEmail?: string;
+  deliveryMode: DeliveryMode;
+  shippingRelay?: ShippingRelayPoint;
+  cartSubtotal: number;
+  amountTotal?: number;
+  shippingAmount?: number;
+  orderId?: string;
+  paidAt?: string;
+  stockAdjustments?: StockAdjustment[];
+  items: CheckoutSessionItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmailEventType = "order_confirmation" | "shipping_tracking";
+export type EmailEventStatus = "pending" | "sent" | "failed" | "skipped";
+
+export type EmailEvent = {
+  _id?: string;
+  type: EmailEventType;
+  status: EmailEventStatus;
+  to?: string;
+  subject: string;
+  orderId?: string;
+  stripeSessionId?: string;
+  providerId?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WebhookEventStatus = "processing" | "processed" | "failed" | "ignored";
+
+export type WebhookEvent = {
+  _id?: string;
+  provider: "stripe" | "boxtal";
+  eventId: string;
+  eventType: string;
+  objectId?: string;
+  status: WebhookEventStatus;
+  error?: string;
   createdAt: string;
   updatedAt: string;
 };

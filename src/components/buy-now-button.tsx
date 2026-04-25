@@ -9,6 +9,7 @@ type BuyNowButtonProps = {
 
 export function BuyNowButton({ slug, disabled }: BuyNowButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleBuyNow() {
     if (disabled || loading) {
@@ -16,6 +17,7 @@ export function BuyNowButton({ slug, disabled }: BuyNowButtonProps) {
     }
 
     setLoading(true);
+    setError("");
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
@@ -32,24 +34,26 @@ export function BuyNowButton({ slug, disabled }: BuyNowButtonProps) {
       }
       throw new Error(payload.error || "Checkout failed");
     } catch (error) {
-      console.error(error);
       const message =
         error instanceof Error
           ? error.message
           : "Impossible de lancer l'achat direct.";
-      alert(message);
+      setError(message);
       setLoading(false);
     }
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleBuyNow}
-      disabled={disabled || loading}
-      className="rounded-full border-2 border-black bg-[var(--accent-3)] px-5 py-3 text-sm font-semibold uppercase tracking-wide text-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      {loading ? "Redirection..." : "Acheter maintenant"}
-    </button>
+    <div className="grid gap-2">
+      <button
+        type="button"
+        onClick={handleBuyNow}
+        disabled={disabled || loading}
+        className="rounded-full border-2 border-black bg-[var(--accent-3)] px-5 py-3 text-sm font-semibold uppercase tracking-wide text-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {loading ? "Redirection..." : "Acheter maintenant"}
+      </button>
+      {error ? <p className="text-xs text-rose-700">{error}</p> : null}
+    </div>
   );
 }

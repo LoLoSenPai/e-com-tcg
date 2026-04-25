@@ -334,7 +334,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
       }
       mapRef.current = null;
     };
-  }, []);
+  }, [onSelect]);
 
   async function handleSearchRelay() {
     if (!mapRef.current) return;

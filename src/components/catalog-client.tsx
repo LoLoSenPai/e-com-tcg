@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Product } from "@/lib/types";
 import { ProductCard } from "@/components/product-card";
 
@@ -51,14 +51,10 @@ export function CatalogClient({
     );
   }, [activeFranchise, languageOptionsByFranchise]);
 
-  useEffect(() => {
-    if (
-      activeLanguage !== "Tous" &&
-      !availableLanguages.includes(activeLanguage)
-    ) {
-      setActiveLanguage("Tous");
-    }
-  }, [activeLanguage, availableLanguages]);
+  const selectedLanguage =
+    activeLanguage !== "Tous" && !availableLanguages.includes(activeLanguage)
+      ? "Tous"
+      : activeLanguage;
 
   const filtered = useMemo(() => {
     return products.filter((product) => {
@@ -70,9 +66,9 @@ export function CatalogClient({
         product.franchise === activeFranchise ||
         product.tags?.includes(activeFranchise);
       const matchesLanguage =
-        activeLanguage === "Tous" ||
-        product.language === activeLanguage ||
-        product.tags?.includes(activeLanguage);
+        selectedLanguage === "Tous" ||
+        product.language === selectedLanguage ||
+        product.tags?.includes(selectedLanguage);
       const matchesSearch =
         !search ||
         product.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -84,7 +80,7 @@ export function CatalogClient({
         matchesLanguage
       );
     });
-  }, [products, activeCategory, activeFranchise, activeLanguage, search]);
+  }, [products, activeCategory, activeFranchise, selectedLanguage, search]);
 
   const gridClassName =
     gridMode === "4"
@@ -163,7 +159,15 @@ export function CatalogClient({
             <button
               key={franchise}
               type="button"
-              onClick={() => setActiveFranchise(franchise)}
+              onClick={() => {
+                setActiveFranchise(franchise);
+                if (
+                  activeLanguage !== "Tous" &&
+                  !availableLanguages.includes(activeLanguage)
+                ) {
+                  setActiveLanguage("Tous");
+                }
+              }}
               className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
                 activeFranchise === franchise
                   ? "bg-black text-white shadow-[3px_3px_0_#ffbf69]"
@@ -181,7 +185,7 @@ export function CatalogClient({
               type="button"
               onClick={() => setActiveLanguage(language)}
               className={`rounded-full border-2 border-black px-4 py-2 text-sm font-semibold transition ${
-                activeLanguage === language
+                selectedLanguage === language
                   ? "bg-black text-white shadow-[3px_3px_0_#ff6b35]"
                   : "bg-white text-slate-600 hover:-translate-y-0.5"
               }`}
