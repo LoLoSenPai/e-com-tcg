@@ -106,6 +106,15 @@ export async function POST(
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
+  if (order.boxtalShipment?.boxtalOrderId) {
+    return NextResponse.json(
+      {
+        error: "A Boxtal shipment already exists for this order",
+        shipment: order.boxtalShipment,
+      },
+      { status: 409 },
+    );
+  }
 
   const body = await request.json().catch(() => ({}));
   const shippingOfferCode =

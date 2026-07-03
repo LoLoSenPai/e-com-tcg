@@ -186,8 +186,14 @@ export async function POST(request: Request) {
     eventType: eventType || "unknown",
     objectId: shipmentExternalId || boxtalOrderId,
   });
-  if (!begin.inserted && begin.event?.status === "processed") {
-    return NextResponse.json({ received: true });
+  if (!begin.shouldProcess) {
+    return NextResponse.json(
+      {
+        received: true,
+        skipped: begin.busy ? "processing" : begin.event?.status,
+      },
+      { status: begin.busy ? 409 : 200 },
+    );
   }
 
   if (!shipmentExternalId && !boxtalOrderId) {

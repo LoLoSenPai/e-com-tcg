@@ -18,6 +18,10 @@ const validStatuses: OrderStatus[] = [
   "delivered",
 ];
 
+function cleanOptionalString(value: unknown) {
+  return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -59,11 +63,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  const tracking = body?.shippingTracking
+  const tracking =
+    body?.shippingTracking && typeof body.shippingTracking === "object"
     ? {
-        carrier: body.shippingTracking.carrier,
-        trackingNumber: body.shippingTracking.trackingNumber,
-        trackingUrl: body.shippingTracking.trackingUrl,
+        carrier: cleanOptionalString(body.shippingTracking.carrier),
+        trackingNumber: cleanOptionalString(body.shippingTracking.trackingNumber),
+        trackingUrl: cleanOptionalString(body.shippingTracking.trackingUrl),
       }
     : undefined;
 
@@ -91,7 +96,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (payload.status === "shipped" && updated.customerEmail) {
+  const hasTrackingDetails = Boolean(
+    updated.shippingTracking?.trackingNumber || updated.shippingTracking?.trackingUrl,
+  );
+  if (tracking && payload.status === "shipped" && updated.customerEmail && hasTrackingDetails) {
     try {
       const email = buildTrackingEmail(updated);
       await sendTrackedEmail({

@@ -15,6 +15,7 @@ export function CheckoutSuccessClient({ sessionId }: { sessionId?: string }) {
   const { clear } = useCart();
   const didClear = useRef(false);
   const [status, setStatus] = useState<CheckoutStatus | null>(null);
+  const [statusError, setStatusError] = useState("");
   const [loadingStatus, setLoadingStatus] = useState(Boolean(sessionId));
 
   useEffect(() => {
@@ -38,9 +39,20 @@ export function CheckoutSuccessClient({ sessionId }: { sessionId?: string }) {
         const response = await fetch(
           `/api/checkout/status?session_id=${encodeURIComponent(currentSessionId)}`,
         );
-        const payload = await response.json();
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || "Statut commande indisponible.");
+        }
         if (!cancelled && response.ok) {
           setStatus(payload);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatusError(
+            error instanceof Error
+              ? error.message
+              : "Statut commande indisponible.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -71,6 +83,11 @@ export function CheckoutSuccessClient({ sessionId }: { sessionId?: string }) {
       <div className="mt-6 rounded-2xl border border-black/10 bg-white/80 p-4 text-sm">
         {loadingStatus ? (
           <p className="text-slate-600">Verification de la commande...</p>
+        ) : statusError ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+            Paiement confirme, mais le statut de commande est temporairement
+            indisponible: {statusError}
+          </div>
         ) : order ? (
           <div className="space-y-2">
             <p className="font-semibold text-slate-900">

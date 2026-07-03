@@ -71,9 +71,12 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   const [loadingShippingOffers, setLoadingShippingOffers] = useState(false);
   const [shippingOffersError, setShippingOffersError] = useState("");
   const [creatingShipment, setCreatingShipment] = useState(false);
+  const [confirmingShipment, setConfirmingShipment] = useState(false);
   const [syncingShipment, setSyncingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
   const [shipmentError, setShipmentError] = useState("");
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderError, setOrderError] = useState("");
   const [emailEvents, setEmailEvents] = useState<EmailEvent[]>([]);
   const [emailMessage, setEmailMessage] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -139,31 +142,68 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
   }, [loadOrder, loadShippingOffers]);
 
   async function updateStatus(status: OrderStatus) {
-    await fetch(`/api/admin/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    await loadOrder();
+    setOrderMessage("");
+    setOrderError("");
+    try {
+      const response = await fetch(`/api/admin/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Mise a jour statut impossible");
+      }
+      setOrderMessage("Statut mis a jour.");
+      await loadOrder();
+    } catch (error) {
+      setOrderError(
+        error instanceof Error ? error.message : "Mise a jour statut impossible",
+      );
+    }
   }
 
   async function updateTracking() {
-    await fetch(`/api/admin/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shippingTracking: {
-          carrier: trackingCarrier,
-          trackingNumber,
-          trackingUrl,
-        },
-      }),
-    });
-    await loadOrder();
+    setOrderMessage("");
+    setOrderError("");
+    try {
+      const response = await fetch(`/api/admin/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shippingTracking: {
+            carrier: trackingCarrier,
+            trackingNumber,
+            trackingUrl,
+          },
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Mise a jour suivi impossible");
+      }
+      setOrderMessage("Suivi mis a jour.");
+      await loadOrder();
+    } catch (error) {
+      setOrderError(
+        error instanceof Error ? error.message : "Mise a jour suivi impossible",
+      );
+    }
   }
 
   async function createShipment() {
+    if (order?.boxtalShipment?.boxtalOrderId) {
+      setShipmentError("Une expedition Boxtal existe deja pour cette commande.");
+      return;
+    }
+    if (!confirmingShipment) {
+      setConfirmingShipment(true);
+      setShipmentMessage("Clique encore une fois pour confirmer la creation.");
+      return;
+    }
+
     setCreatingShipment(true);
+    setConfirmingShipment(false);
     setShipmentMessage("");
     setShipmentError("");
     try {
@@ -289,6 +329,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
     );
   }
 
+  const failedStockAdjustments =
+    order.stockAdjustments?.filter((adjustment) => !adjustment.applied) ?? [];
+
   return (
     <div className="space-y-6">
       <div className="manga-panel rounded-[24px] bg-white p-6">
@@ -317,6 +360,16 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
             <option value="delivered">Livree</option>
           </select>
         </div>
+        {orderMessage ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            {orderMessage}
+          </div>
+        ) : null}
+        {orderError ? (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {orderError}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -384,6 +437,30 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
         </div>
       </div>
 
+      {failedStockAdjustments.length > 0 ? (
+        <div className="manga-panel rounded-[24px] border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+          <p className="font-semibold">Stock a verifier</p>
+          <p className="mt-1 text-xs">
+            Le paiement est enregistre, mais au moins un article n&apos;a pas pu
+            etre decremente automatiquement.
+          </p>
+          <div className="mt-3 space-y-2 text-xs">
+            {failedStockAdjustments.map((adjustment) => (
+              <div
+                key={`${adjustment.slug}-${adjustment.quantity}`}
+                className="rounded-xl border border-amber-200 bg-white px-3 py-2"
+              >
+                <p className="font-semibold">{adjustment.slug}</p>
+                <p>
+                  Quantite: {adjustment.quantity} -{" "}
+                  {adjustment.reason || "Ajustement stock non applique."}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="manga-panel rounded-[24px] bg-white p-6">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
           Emails client
@@ -449,7 +526,10 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
         <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr]">
           <select
             value={shippingOfferCode}
-            onChange={(event) => setShippingOfferCode(event.target.value)}
+            onChange={(event) => {
+              setShippingOfferCode(event.target.value);
+              setConfirmingShipment(false);
+            }}
             className="rounded-2xl border-2 border-black px-4 py-2 text-sm"
           >
             <option value="">Code offre auto (env)</option>
@@ -462,10 +542,16 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           <button
             type="button"
             onClick={createShipment}
-            disabled={creatingShipment}
+            disabled={creatingShipment || Boolean(order.boxtalShipment?.boxtalOrderId)}
             className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {creatingShipment ? "Creation..." : "Creer expedition Boxtal"}
+            {order.boxtalShipment?.boxtalOrderId
+              ? "Expedition deja creee"
+              : creatingShipment
+                ? "Creation..."
+                : confirmingShipment
+                  ? "Confirmer creation"
+                  : "Creer expedition Boxtal"}
           </button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -501,7 +587,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           </div>
         ) : null}
         {order.boxtalShipment ? (
-          <div className="mt-4 rounded-[26px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.94),rgba(13,23,39,0.82))] p-4 text-sm text-slate-700 shadow-[0_18px_34px_-26px_rgba(2,8,23,0.9)]">
+          <div className="mt-4 rounded-[26px] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.28)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-slate-900">Expedition active</p>
@@ -526,7 +612,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                   borderColor: shipmentCardThemes.offer.borderColor,
                 }}
               >
-                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                   Offre
                 </p>
                 <p
@@ -543,7 +629,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                   borderColor: shipmentCardThemes.carrier.borderColor,
                 }}
               >
-                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                   Transporteur
                 </p>
                 <p
@@ -560,7 +646,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                   borderColor: shipmentCardThemes.tracking.borderColor,
                 }}
               >
-                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
                   Tracking
                 </p>
                 <p

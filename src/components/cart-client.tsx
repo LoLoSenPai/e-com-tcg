@@ -76,6 +76,7 @@ export function CartClient({ products }: CartClientProps) {
   const [deliveryMode, setDeliveryMode] = useState<"home" | "relay">("home");
   const [relayPoint, setRelayPoint] = useState<ShippingRelayPoint | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const searchParams = useSearchParams();
   const checkoutSuccess = searchParams.get("success");
   const checkoutCancel = searchParams.get("cancel");
@@ -104,6 +105,7 @@ export function CartClient({ products }: CartClientProps) {
     [deliveryMode, subtotal],
   );
   const estimatedTotal = subtotal + cheapestShipping.amount;
+  const missingRelayPoint = deliveryMode === "relay" && !relayPoint;
 
   async function handleCheckout() {
     setCheckoutError("");
@@ -192,6 +194,7 @@ export function CartClient({ products }: CartClientProps) {
                 onClick={() => {
                   setDeliveryMode("home");
                   setRelayPoint(null);
+                  setCheckoutError("");
                 }}
                 className={`rounded-full border-2 border-black px-4 py-2 text-xs font-semibold transition ${
                   deliveryMode === "home"
@@ -203,7 +206,10 @@ export function CartClient({ products }: CartClientProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setDeliveryMode("relay")}
+                onClick={() => {
+                  setDeliveryMode("relay");
+                  setCheckoutError("");
+                }}
                 className={`rounded-full border-2 border-black px-4 py-2 text-xs font-semibold transition ${
                   deliveryMode === "relay"
                     ? "bg-black text-white shadow-[3px_3px_0_#2ec4b6]"
@@ -213,8 +219,8 @@ export function CartClient({ products }: CartClientProps) {
                 Point relais Boxtal
               </button>
             </div>
-            <div className="mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.94),rgba(13,23,39,0.82))] p-4 text-sm text-slate-600 shadow-[0_18px_36px_-28px_rgba(2,8,23,0.9)]">
-              <p className="font-semibold text-slate-900">Tarifs livraison</p>
+            <div className="mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(160deg,rgba(18,29,48,0.94),rgba(13,23,39,0.82))] p-4 text-sm text-slate-200 shadow-[0_18px_36px_-28px_rgba(2,8,23,0.9)]">
+              <p className="font-semibold text-white">Tarifs livraison</p>
               <div className="mt-3 grid gap-3">
                 {shippingQuotes.map((quote) => {
                   const theme = getShippingQuoteTheme(quote.code);
@@ -270,7 +276,7 @@ export function CartClient({ products }: CartClientProps) {
                   );
                 })}
               </div>
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-200">
                 {getShippingThresholdMessage(deliveryMode)}
                 {deliveryMode === "home"
                   ? " Le choix final standard/express se fait dans Stripe."
@@ -279,7 +285,12 @@ export function CartClient({ products }: CartClientProps) {
             </div>
             {deliveryMode === "relay" ? (
               <div className="mt-4">
-                <BoxtalRelayPicker onSelect={setRelayPoint} />
+                <BoxtalRelayPicker
+                  onSelect={(point) => {
+                    setRelayPoint(point);
+                    setCheckoutError("");
+                  }}
+                />
               </div>
             ) : null}
           </div>
@@ -386,21 +397,33 @@ export function CartClient({ products }: CartClientProps) {
               ? "Base sur l'option la moins chere. Le montant final est confirme dans Stripe."
               : "Montant final avec le point relais selectionne."}
           </p>
+          {missingRelayPoint ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Choisis un point relais avant de payer.
+            </div>
+          ) : null}
           <div className="border-t border-black/10 pt-4">
             <button
               type="button"
               onClick={handleCheckout}
-              disabled={loading}
+              disabled={loading || missingRelayPoint}
               className="w-full rounded-full bg-black px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "Redirection..." : "Payer avec Stripe"}
             </button>
             <button
               type="button"
-              onClick={clear}
+              onClick={() => {
+                if (!confirmClear) {
+                  setConfirmClear(true);
+                  return;
+                }
+                clear();
+                setConfirmClear(false);
+              }}
               className="mt-3 w-full rounded-full border border-black/10 px-6 py-3 text-sm font-semibold text-slate-600"
             >
-              Vider le panier
+              {confirmClear ? "Confirmer suppression" : "Vider le panier"}
             </button>
           </div>
         </div>

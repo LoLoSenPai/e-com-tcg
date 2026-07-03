@@ -5,6 +5,11 @@ import { getCustomerFromRequest } from "@/lib/customer-auth";
 import type { CheckoutSessionItem, ShippingRelayPoint } from "@/lib/types";
 import { getShippingQuotes } from "@/lib/shipping";
 import { createCheckoutSessionRecord } from "@/lib/checkout-sessions";
+import {
+  getCheckoutBaseUrl,
+  maxCheckoutItems,
+  normalizeCheckoutItems,
+} from "@/lib/checkout-validation";
 
 type CartItem = {
   slug: string;
@@ -42,16 +47,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const items = Array.isArray(body.items)
-    ? body.items
-        .map((item) => ({
-          slug: String(item.slug || "").trim(),
-          quantity: Math.floor(Number(item.quantity)),
-        }))
-        .filter((item) => item.slug && item.quantity > 0)
-    : [];
+  const items = normalizeCheckoutItems(body.items);
   if (items.length === 0) {
     return NextResponse.json({ error: "Empty cart" }, { status: 400 });
+  }
+  if (items.length > maxCheckoutItems) {
+    return NextResponse.json(
+      { error: `Cart cannot contain more than ${maxCheckoutItems} products` },
+      { status: 400 },
+    );
   }
 
   const deliveryMode = body.deliveryMode === "relay" ? "relay" : "home";
@@ -98,10 +102,18 @@ export async function POST(request: NextRequest) {
 
   const stripe = getStripe();
   const customer = await getCustomerFromRequest(request);
-  const origin =
-    request.headers.get("origin") ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
+  const origin = getCheckoutBaseUrl({
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    requestOrigin: request.headers.get("origin"),
+    requestUrl: request.url,
+    isProduction: process.env.NODE_ENV === "production",
+  });
+  if (!origin) {
+    return NextResponse.json(
+      { error: "Missing NEXT_PUBLIC_SITE_URL" },
+      { status: 500 },
+    );
+  }
 
   const subtotal = checkoutItems.reduce(
     (total, item) => total + item.unitAmount * item.quantity,

@@ -1,19 +1,47 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
-import { createOrder, getOrderByStripeSessionId, updateOrderFields } from "@/lib/orders";
+import {
+  createOrderWithStockAdjustments,
+  getOrderByStripeSessionId,
+} from "@/lib/orders";
 import { sendTrackedEmail } from "@/lib/email";
+import { getEmailEventsByStripeSessionId } from "@/lib/email-events";
+import { hasFinalOrderConfirmationAttempt } from "@/lib/email-delivery";
 import {
   getCheckoutSessionByStripeId,
   markCheckoutSessionOrderCreated,
   markCheckoutSessionPaid,
 } from "@/lib/checkout-sessions";
 import { buildOrderConfirmationEmail } from "@/lib/email-templates";
-import { decrementProductStocks } from "@/lib/products";
 import { beginWebhookEvent, updateWebhookEvent } from "@/lib/webhook-events";
-import type { OrderItem, ShippingRelayPoint } from "@/lib/types";
+import type { Order, OrderItem, ShippingRelayPoint } from "@/lib/types";
 
 export const runtime = "nodejs";
+
+async function sendOrderConfirmationIfMissing(order: Order) {
+  if (!order.customerEmail) {
+    return;
+  }
+
+  const emailEvents = await getEmailEventsByStripeSessionId(
+    order.stripeSessionId,
+  ).catch(() => []);
+  const alreadyAttempted = hasFinalOrderConfirmationAttempt(emailEvents);
+  if (alreadyAttempted) {
+    return;
+  }
+
+  const email = buildOrderConfirmationEmail(order);
+  await sendTrackedEmail({
+    type: "order_confirmation",
+    orderId: order._id,
+    stripeSessionId: order.stripeSessionId,
+    to: order.customerEmail,
+    subject: email.subject,
+    html: email.html,
+  });
+}
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -45,14 +73,23 @@ export async function POST(request: Request) {
       eventType: event.type,
       objectId: (event.data.object as Stripe.Checkout.Session).id,
     });
-    if (!begin.inserted && begin.event?.status === "processed") {
-      return NextResponse.json({ received: true });
+    if (!begin.shouldProcess) {
+      return NextResponse.json(
+        {
+          received: true,
+          skipped: begin.busy ? "processing" : begin.event?.status,
+        },
+        { status: begin.busy ? 409 : 200 },
+      );
     }
 
     try {
       const session = event.data.object as Stripe.Checkout.Session;
       const existing = await getOrderByStripeSessionId(session.id);
       if (existing) {
+        await sendOrderConfirmationIfMissing(existing).catch(() => {
+          // Non-blocking: order is already saved and email_events logs failures.
+        });
         await updateWebhookEvent("stripe", event.id, "processed");
         return NextResponse.json({ received: true });
       }
@@ -105,7 +142,12 @@ export async function POST(request: Request) {
               longitude: metadata.relayLng ? Number(metadata.relayLng) : undefined,
             }
           : undefined);
-      const customerEmail = session.customer_details?.email?.toLowerCase();
+      const customerEmail = (
+        session.customer_details?.email ||
+        session.customer_email ||
+        checkoutSession?.customerEmail ||
+        undefined
+      )?.toLowerCase();
       const shippingAmount = session.total_details?.amount_shipping || 0;
 
       await markCheckoutSessionPaid({
@@ -115,7 +157,7 @@ export async function POST(request: Request) {
         customerEmail,
       });
 
-      const created = await createOrder({
+      const createResult = await createOrderWithStockAdjustments({
         stripeSessionId: session.id,
         stripePaymentIntentId: session.payment_intent?.toString(),
         customerId: checkoutSession?.customerId || metadata.customerId || undefined,
@@ -141,35 +183,34 @@ export async function POST(request: Request) {
         items,
         createdAt: now,
         updatedAt: now,
-      });
+      }, checkoutSession?.items || []);
+      const created = createResult.order;
 
-      const stockAdjustments = checkoutSession?.items.length
-        ? await decrementProductStocks(checkoutSession.items)
-        : [];
-      const order =
-        created._id && stockAdjustments.length > 0
-          ? await updateOrderFields(created._id, { stockAdjustments })
-          : created;
+      if (!createResult.inserted) {
+        if (created._id) {
+          await markCheckoutSessionOrderCreated({
+            stripeSessionId: session.id,
+            orderId: created._id,
+            stockAdjustments: created.stockAdjustments || [],
+          });
+        }
+        await sendOrderConfirmationIfMissing(created).catch(() => {
+          // Non-blocking: order is already saved and email_events logs failures.
+        });
+        await updateWebhookEvent("stripe", event.id, "processed");
+        return NextResponse.json({ received: true });
+      }
 
       if (created._id) {
         await markCheckoutSessionOrderCreated({
           stripeSessionId: session.id,
           orderId: created._id,
-          stockAdjustments,
+          stockAdjustments: createResult.stockAdjustments,
         });
       }
 
-      const emailOrder = order || created;
-      const email = buildOrderConfirmationEmail(emailOrder);
       try {
-        await sendTrackedEmail({
-          type: "order_confirmation",
-          orderId: created._id,
-          stripeSessionId: session.id,
-          to: customerEmail,
-          subject: email.subject,
-          html: email.html,
-        });
+        await sendOrderConfirmationIfMissing(created);
       } catch {
         // Non-blocking: order saved and email_events contains the failure.
       }
@@ -188,7 +229,16 @@ export async function POST(request: Request) {
       eventType: event.type,
       objectId: "id" in event.data.object ? String(event.data.object.id) : undefined,
     });
-    if (begin.inserted) {
+    if (!begin.shouldProcess) {
+      return NextResponse.json(
+        {
+          received: true,
+          skipped: begin.busy ? "processing" : begin.event?.status,
+        },
+        { status: begin.busy ? 409 : 200 },
+      );
+    }
+    if (begin.inserted || begin.shouldProcess) {
       await updateWebhookEvent("stripe", event.id, "ignored");
     }
   }

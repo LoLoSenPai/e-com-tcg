@@ -38,7 +38,15 @@ async function getClient() {
   }
 }
 
+export async function getMongoClient() {
+  return getClient();
+}
+
+export function getDbName() {
+  return process.env.MONGODB_DB || "nebula_tcg";
+}
+
 export async function getDb() {
   const client = await getClient();
-  return client.db(process.env.MONGODB_DB || "nebula_tcg");
+  return client.db(getDbName());
 }

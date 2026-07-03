@@ -85,13 +85,17 @@ export function AdminDashboard() {
     setStatus("");
     try {
       const response = await fetch("/api/admin/products");
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload.error || "Load failed");
       }
       setProducts(payload.products || []);
-    } catch {
-      setStatus("Impossible de charger les produits.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "Impossible de charger les produits.",
+      );
     } finally {
       setLoading(false);
     }
@@ -188,15 +192,17 @@ export function AdminDashboard() {
           body: JSON.stringify(payload),
         },
       );
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || "Save failed");
       }
       setStatus(useUpdate ? "Produit mis a jour." : "Produit ajoute.");
       handleReset();
       await loadProducts();
-    } catch {
-      setStatus("Echec de sauvegarde.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Echec de sauvegarde.",
+      );
     } finally {
       setLoading(false);
     }
@@ -209,15 +215,17 @@ export function AdminDashboard() {
       const response = await fetch(`/api/admin/products/${slug}`, {
         method: "DELETE",
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || "Delete failed");
       }
       setStatus("Produit supprime.");
       setPendingDeleteSlug(null);
       await loadProducts();
-    } catch {
-      setStatus("Echec de suppression.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Echec de suppression.",
+      );
     } finally {
       setLoading(false);
     }
@@ -228,14 +236,14 @@ export function AdminDashboard() {
     setStatus("");
     try {
       const response = await fetch("/api/seed", { method: "POST" });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || "Seed failed");
       }
       setStatus(`Seed OK: ${data.inserted} produits.`);
       await loadProducts();
-    } catch {
-      setStatus("Seed impossible.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Seed impossible.");
     } finally {
       setLoading(false);
     }
@@ -248,14 +256,16 @@ export function AdminDashboard() {
       const response = await fetch("/api/admin/migrate-franchise", {
         method: "POST",
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || "Migration failed");
       }
       setStatus(`Migration OK: ${data.updated} produits.`);
       await loadProducts();
-    } catch {
-      setStatus("Migration impossible.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Migration impossible.",
+      );
     } finally {
       setLoading(false);
     }
@@ -273,14 +283,14 @@ export function AdminDashboard() {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || "Upload failed");
       }
       setForm((prev) => ({ ...prev, image: data.url }));
       setStatus("Image uploadee.");
-    } catch {
-      setStatus("Upload impossible.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Upload impossible.");
     } finally {
       setUploading(false);
     }
@@ -296,13 +306,15 @@ export function AdminDashboard() {
     setStatus("");
     try {
       const response = await fetch("/api/admin/health");
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload.error || "Health failed");
       }
       setHealth(payload);
-    } catch {
-      setStatus("Healthcheck impossible.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Healthcheck impossible.",
+      );
     } finally {
       setHealthLoading(false);
     }
@@ -389,6 +401,12 @@ export function AdminDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {status}
         </div>
       ) : null}
 
@@ -482,7 +500,7 @@ export function AdminDashboard() {
                 ) : null}
               </div>
             ))}
-            {!loading && filtered.length === 0 ? (
+            {!loading && !status && filtered.length === 0 ? (
               <div className="manga-panel rounded-[24px] bg-white p-6 text-sm text-slate-500">
                 Aucun produit.
               </div>

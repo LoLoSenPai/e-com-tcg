@@ -47,6 +47,22 @@ Important Boxtal:
 - Detail commande: creation expedition Boxtal depuis `/admin/orders/:id`
 - Healthcheck prod: `/api/admin/health` (session admin requise, ne renvoie pas les secrets)
 
+## Vercel Blob
+
+Les uploads admin utilisent Vercel Blob en production.
+
+1. Dans Vercel, aller dans `Storage`, creer ou connecter un Blob Store au projet.
+2. Verifier que `BLOB_READ_WRITE_TOKEN` existe dans les variables d'environnement du projet pour `Production` (et `Preview` si besoin).
+3. Relancer un deploiement apres l'ajout de la variable: un deploiement deja en ligne ne recupere pas automatiquement les nouvelles variables.
+4. Pour le dev local, lier le dossier puis pull les variables:
+
+```bash
+vercel link
+vercel env pull .env.local --yes
+```
+
+Attention: `vercel env pull` remplace `.env.local`. Sauvegarder les valeurs locales non presentes dans Vercel avant de lancer la commande.
+
 ## Compte client
 
 - Login: `/account/login`
@@ -64,6 +80,27 @@ Important Boxtal:
 ```bash
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
+
+## Validation avant lancement
+
+Commandes locales:
+
+```bash
+npm test
+npm run lint
+npm run build
+npm audit --omit=dev
+```
+
+Smoke test Vercel Preview ou production test:
+
+1. Verifier `/api/admin/health` connecte en admin: tous les checks doivent etre `ok`.
+2. Creer ou verifier un produit avec stock positif et image uploadee via Blob.
+3. Passer une commande Stripe en mode test avec une adresse email client reelle.
+4. Verifier dans Stripe que `checkout.session.completed` a appele `/api/stripe/webhook`.
+5. Verifier dans Mongo/admin que la commande existe, que le stock a ete ajuste, et que `email_events` contient `order_confirmation`.
+6. Verifier que l'email Resend est recu par le client, ou que l'erreur email est visible dans l'admin.
+7. Depuis la fiche commande, creer l'expedition Boxtal une seule fois, synchroniser, puis renvoyer l'email de suivi.
 
 ## Boxtal (API v3)
 

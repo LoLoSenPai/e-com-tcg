@@ -52,15 +52,23 @@ export async function sendTrackedEmail({
   subject: string;
   html: string;
 }) {
-  const pendingEvent = await createEmailEvent({
-    type,
-    status: to ? "pending" : "skipped",
-    to,
-    subject,
-    orderId,
-    stripeSessionId,
-    error: to ? undefined : "Missing recipient email.",
-  });
+  let pendingEvent = null;
+  try {
+    pendingEvent = await createEmailEvent({
+      type,
+      status: to ? "pending" : "skipped",
+      to,
+      subject,
+      orderId,
+      stripeSessionId,
+      error: to ? undefined : "Missing recipient email.",
+    });
+  } catch (error) {
+    console.warn(
+      "Email event creation failed.",
+      error instanceof Error ? error.message : error,
+    );
+  }
 
   if (!to) {
     return pendingEvent;
@@ -68,17 +76,33 @@ export async function sendTrackedEmail({
 
   try {
     const result = await sendEmail({ to, subject, html });
-    return updateEmailEvent(pendingEvent?._id, {
-      status: "sent",
-      providerId: result.providerId,
-    });
+    try {
+      const sentEvent = await updateEmailEvent(pendingEvent?._id, {
+        status: "sent",
+        providerId: result.providerId,
+      });
+      return sentEvent || pendingEvent;
+    } catch (error) {
+      console.warn(
+        "Email event sent update failed.",
+        error instanceof Error ? error.message : error,
+      );
+      return pendingEvent;
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Email delivery failed.";
-    await updateEmailEvent(pendingEvent?._id, {
-      status: "failed",
-      error: message,
-    });
+    try {
+      await updateEmailEvent(pendingEvent?._id, {
+        status: "failed",
+        error: message,
+      });
+    } catch (logError) {
+      console.warn(
+        "Email event failed update failed.",
+        logError instanceof Error ? logError.message : logError,
+      );
+    }
     throw error;
   }
 }

@@ -13,21 +13,25 @@ type Stats = {
 };
 
 const statusLabels: Record<OrderStatus, string> = {
-  paid: "Payée",
-  preparation: "Préparation",
-  shipped: "Expédiée",
-  delivered: "Livrée",
+  paid: "Payee",
+  preparation: "Preparation",
+  shipped: "Expediee",
+  delivered: "Livree",
 };
 
 export function AdminOrdersClient() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
 
   async function loadOrders() {
     setLoading(true);
+    setError("");
     try {
       const response = await fetch("/api/admin/orders");
       const payload = await response.json();
@@ -36,8 +40,14 @@ export function AdminOrdersClient() {
       }
       setOrders(payload.orders || []);
       setStats(payload.stats || null);
-    } catch {
+    } catch (loadError) {
       setOrders([]);
+      setStats(null);
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Impossible de charger les commandes.",
+      );
     } finally {
       setLoading(false);
     }
@@ -48,12 +58,35 @@ export function AdminOrdersClient() {
   }, []);
 
   async function updateStatus(id: string, status: OrderStatus) {
-    await fetch(`/api/admin/orders/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    await loadOrders();
+    if (!id) {
+      setError("Commande invalide.");
+      return;
+    }
+
+    setUpdatingOrderId(id);
+    setError("");
+    setStatusMessage("");
+    try {
+      const response = await fetch(`/api/admin/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Mise a jour impossible.");
+      }
+      setStatusMessage("Statut commande mis a jour.");
+      await loadOrders();
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Mise a jour impossible.",
+      );
+    } finally {
+      setUpdatingOrderId("");
+    }
   }
 
   const filtered = orders.filter((order) => {
@@ -126,67 +159,81 @@ export function AdminOrdersClient() {
           <button
             type="button"
             onClick={loadOrders}
-            className="rounded-full border-2 border-black px-4 py-2 text-sm font-semibold"
+            disabled={loading}
+            className="rounded-full border-2 border-black px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Rafraichir
+            {loading ? "Chargement..." : "Rafraichir"}
           </button>
         </div>
       </div>
 
+      {error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          {error}
+        </div>
+      ) : null}
+      {statusMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          {statusMessage}
+        </div>
+      ) : null}
+
       <div className="grid gap-4">
-        {filtered.map((order) => (
-          <div
-            key={order._id ? String(order._id) : order.stripeSessionId}
-            className="manga-panel rounded-[24px] bg-white p-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  {order.customerEmail || "Client"}
-                </p>
-                <p className="font-semibold text-slate-900">
-                  {formatPrice(order.amountTotal)} - {statusLabels[order.status]}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {new Date(order.createdAt).toLocaleString("fr-FR")}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {order._id ? (
-                  <Link
-                    href={`/admin/orders/${order._id}`}
-                    className="rounded-full border-2 border-black px-3 py-1 text-xs font-semibold"
-                  >
-                    Details
-                  </Link>
-                ) : null}
-                <select
-                  value={order.status}
-                  onChange={(event) =>
-                    updateStatus(
-                      order._id ? String(order._id) : "",
-                      event.target.value as OrderStatus,
-                    )
-                  }
-                  className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold"
-                >
-                  <option value="paid">Payee</option>
-                  <option value="preparation">Preparation</option>
-                  <option value="shipped">Expediee</option>
-                  <option value="delivered">Livree</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-3 text-sm text-slate-600">
-              {order.items.map((item) => (
-                <div key={`${order._id}-${item.name}`}>
-                  {item.quantity}x {item.name}
+        {filtered.map((order) => {
+          const orderId = order._id ? String(order._id) : "";
+
+          return (
+            <div
+              key={orderId || order.stripeSessionId}
+              className="manga-panel rounded-[24px] bg-white p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    {order.customerEmail || "Client"}
+                  </p>
+                  <p className="font-semibold text-slate-900">
+                    {formatPrice(order.amountTotal)} - {statusLabels[order.status]}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(order.createdAt).toLocaleString("fr-FR")}
+                  </p>
                 </div>
-              ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  {orderId ? (
+                    <Link
+                      href={`/admin/orders/${orderId}`}
+                      className="rounded-full border-2 border-black px-3 py-1 text-xs font-semibold"
+                    >
+                      Details
+                    </Link>
+                  ) : null}
+                  <select
+                    value={order.status}
+                    disabled={updatingOrderId === orderId}
+                    onChange={(event) =>
+                      updateStatus(orderId, event.target.value as OrderStatus)
+                    }
+                    className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="paid">Payee</option>
+                    <option value="preparation">Preparation</option>
+                    <option value="shipped">Expediee</option>
+                    <option value="delivered">Livree</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-3 text-sm text-slate-600">
+                {order.items.map((item) => (
+                  <div key={`${orderId || order.stripeSessionId}-${item.name}`}>
+                    {item.quantity}x {item.name}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-        {!loading && filtered.length === 0 ? (
+          );
+        })}
+        {!loading && !error && filtered.length === 0 ? (
           <div className="manga-panel rounded-[24px] bg-white p-6 text-sm text-slate-500">
             Aucune commande pour le moment.
           </div>

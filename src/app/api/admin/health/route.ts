@@ -20,6 +20,11 @@ function configured(name: string, label = name): Check {
   };
 }
 
+function requiredConfigured(name: string, label: string, detail: string): Check {
+  const check = configured(name, label);
+  return check.ok ? check : { ...check, detail };
+}
+
 function validUrl(name: string, label = name): Check {
   const raw = process.env[name];
   if (!raw) {
@@ -56,7 +61,11 @@ export async function GET(request: NextRequest) {
     siteUrl: validUrl("NEXT_PUBLIC_SITE_URL", "Public site URL"),
     blobToken:
       process.env.NODE_ENV === "production"
-        ? configured("BLOB_READ_WRITE_TOKEN", "Vercel Blob token")
+        ? requiredConfigured(
+            "BLOB_READ_WRITE_TOKEN",
+            "Vercel Blob token",
+            "Required for admin image uploads in production.",
+          )
         : { ok: true, label: "Vercel Blob token", detail: "Optional in development" },
     boxtalApiKey: configured("BOXTAL_API_ACCESS_KEY", "Boxtal API access key"),
     boxtalApiSecret: configured("BOXTAL_API_SECRET_KEY", "Boxtal API secret key"),
