@@ -18,11 +18,20 @@ export function AdminLoginClient() {
         body: JSON.stringify({ token }),
       });
       if (!response.ok) {
-        throw new Error("Unauthorized");
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          response.status === 429
+            ? "Trop de tentatives. Patiente avant de reessayer."
+            : payload?.error === "Unauthorized"
+              ? "Token invalide. Reessaie."
+              : "Connexion impossible.",
+        );
       }
       window.location.href = "/admin";
-    } catch {
-      setError("Token invalide. Reessaie.");
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Connexion impossible.",
+      );
     } finally {
       setLoading(false);
     }
@@ -42,9 +51,11 @@ export function AdminLoginClient() {
         </h1>
       </div>
       <input
+        type="password"
         value={token}
         onChange={(event) => setToken(event.target.value)}
         placeholder="ADMIN_TOKEN"
+        autoComplete="current-password"
         className="rounded-2xl border-2 border-black px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
       />
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}

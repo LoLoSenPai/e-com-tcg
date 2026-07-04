@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCustomerByEmail } from "@/lib/customers";
 import { createCustomerSession, customerCookieName, getCustomerMaxAge } from "@/lib/customer-auth";
 import { verifyPassword } from "@/lib/customer-password";
+import { toPublicCustomerProfile } from "@/lib/public-customer";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
   const response = NextResponse.json({
-    customer: { _id: customer._id, email: customer.email, name: customer.name },
+    customer: toPublicCustomerProfile(customer),
   });
   response.cookies.set({
     name: customerCookieName,

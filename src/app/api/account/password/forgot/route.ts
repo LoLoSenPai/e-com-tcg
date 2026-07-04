@@ -3,6 +3,7 @@ import { getCustomerByEmail } from "@/lib/customers";
 import { createPasswordResetToken } from "@/lib/password-reset";
 import { sendEmail } from "@/lib/email";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { getCheckoutBaseUrl } from "@/lib/checkout-validation";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request.headers);
@@ -37,10 +38,15 @@ export async function POST(request: NextRequest) {
         customerId: customer._id,
         email: customer.email,
       });
-      const origin =
-        request.headers.get("origin") ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        "http://localhost:3000";
+      const origin = getCheckoutBaseUrl({
+        configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+        requestOrigin: request.headers.get("origin"),
+        requestUrl: request.url,
+        isProduction: process.env.NODE_ENV === "production",
+      });
+      if (!origin) {
+        throw new Error("Missing NEXT_PUBLIC_SITE_URL.");
+      }
       const resetUrl = `${origin}/account/reset-password?email=${encodeURIComponent(
         customer.email,
       )}&token=${encodeURIComponent(token)}`;
@@ -50,7 +56,11 @@ export async function POST(request: NextRequest) {
         html: `<p>Tu as demande une reinitialisation de mot de passe.</p><p><a href="${resetUrl}">Reinitialiser mon mot de passe</a></p><p>Ce lien expire dans 1 heure.</p>`,
       });
     }
-  } catch {
+  } catch (error) {
+    console.warn(
+      "Password reset email failed.",
+      error instanceof Error ? error.message : error,
+    );
     // Keep response generic to avoid account enumeration.
   }
   return NextResponse.json({ ok: true });

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
 import { getOrderById } from "@/lib/orders";
-import { sendTrackedEmail } from "@/lib/email";
 import {
-  buildOrderConfirmationEmail,
-  buildTrackingEmail,
-} from "@/lib/email-templates";
+  getOrderEmailSendProblem,
+  sendOrderEmail,
+} from "@/lib/order-email";
 
 function isAuthorized(request: NextRequest) {
   const sessionValue = request.cookies.get(adminCookieName)?.value;
@@ -25,29 +24,17 @@ export async function POST(
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
-  if (!order.customerEmail) {
-    return NextResponse.json(
-      { error: "Order has no customer email" },
-      { status: 400 },
-    );
-  }
-
   const body = await request.json().catch(() => ({}));
   const type =
     body?.type === "shipping_tracking" ? "shipping_tracking" : "order_confirmation";
-  const template =
-    type === "shipping_tracking"
-      ? buildTrackingEmail(order)
-      : buildOrderConfirmationEmail(order);
+  const problem = getOrderEmailSendProblem(order, type);
+  if (problem) {
+    return NextResponse.json({ error: problem }, { status: 400 });
+  }
 
   try {
-    const event = await sendTrackedEmail({
-      type,
-      orderId: order._id,
-      stripeSessionId: order.stripeSessionId,
-      to: order.customerEmail,
-      subject: template.subject,
-      html: template.html,
+    const event = await sendOrderEmail(order, type, {
+      skipIdempotencyKey: true,
     });
     return NextResponse.json({ event });
   } catch (error) {

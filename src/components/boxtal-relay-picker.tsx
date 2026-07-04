@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ShippingRelayPoint } from "@/lib/types";
 
 type BoxtalAddress = {
@@ -199,11 +199,13 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
   const [error, setError] = useState("");
   const [loadingToken, setLoadingToken] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [signingSelection, setSigningSelection] = useState(false);
   const [resultsCount, setResultsCount] = useState<number | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<ShippingRelayPoint | null>(
     null,
   );
   const mapRef = useRef<BoxtalMapsInstance | null>(null);
+  const onSelectRef = useRef(onSelect);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSearchAddressRef = useRef<Omit<BoxtalAddress, "country"> | null>(
     null,
@@ -220,6 +222,42 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     () => Boolean(address.zipCode.trim() && address.city.trim() && ready),
     [address.zipCode, address.city, ready],
   );
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  const selectRelayPoint = useCallback(async (point: BoxtalParcelPoint) => {
+    const normalized = normalizeRelayPoint(point);
+    setSigningSelection(true);
+    setSelectedPoint(null);
+    onSelectRef.current(null);
+
+    try {
+      const response = await fetch("/api/boxtal/relay-selection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relayPoint: normalized }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.relayPoint?.selectionToken) {
+        throw new Error(
+          payload?.error || "Validation du point relais impossible",
+        );
+      }
+      setSelectedPoint(payload.relayPoint);
+      onSelectRef.current(payload.relayPoint);
+      setError("");
+    } catch (selectionError) {
+      setError(
+        selectionError instanceof Error
+          ? selectionError.message
+          : "Validation du point relais impossible",
+      );
+    } finally {
+      setSigningSelection(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -281,9 +319,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
               mapRef.current?.searchParcelPoints(
                 { ...lastSearchAddressRef.current, country: "FRA" },
                 (selected) => {
-                  const normalized = normalizeRelayPoint(selected);
-                  setSelectedPoint(normalized);
-                  onSelect(normalized);
+                  void selectRelayPoint(selected);
                 },
               );
               return;
@@ -334,7 +370,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
       }
       mapRef.current = null;
     };
-  }, [onSelect]);
+  }, [selectRelayPoint]);
 
   async function handleSearchRelay() {
     if (!mapRef.current) return;
@@ -344,7 +380,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     setSelectedPoint(null);
     retriedWithFraRef.current = false;
     activeCountryRef.current = "FR";
-    onSelect(null);
+    onSelectRef.current(null);
 
     const normalizedAddress = {
       zipCode: address.zipCode.trim(),
@@ -361,9 +397,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           ...normalizedAddress,
         },
         (selected) => {
-          const normalized = normalizeRelayPoint(selected);
-          setSelectedPoint(normalized);
-          onSelect(normalized);
+          void selectRelayPoint(selected);
         },
       );
 
@@ -420,7 +454,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
         <button
           type="button"
           onClick={handleSearchRelay}
-          disabled={!canSearch || loadingToken || searching}
+          disabled={!canSearch || loadingToken || searching || signingSelection}
           className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {searching ? "Recherche..." : "Chercher un point relais"}
@@ -435,6 +469,9 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
             {resultsCount} point{resultsCount > 1 ? "s" : ""} propose
             {resultsCount > 1 ? "s" : ""}.
           </p>
+        ) : null}
+        {signingSelection ? (
+          <p className="text-xs text-slate-500">Validation du relais...</p>
         ) : null}
       </div>
 

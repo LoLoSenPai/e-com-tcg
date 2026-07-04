@@ -23,6 +23,7 @@ async function ensureIndexes() {
       await Promise.all([
         collection.createIndex({ orderId: 1, createdAt: -1 }),
         collection.createIndex({ stripeSessionId: 1, createdAt: -1 }),
+        collection.createIndex({ createdAt: -1 }),
       ]);
     });
   }
@@ -76,6 +77,7 @@ export async function updateEmailEvent(
 }
 
 export async function getEmailEventsByOrderId(orderId: string) {
+  await ensureIndexes();
   const db = await getDb();
   const docs = await db
     .collection<DbEmailEvent>(collectionName)
@@ -87,12 +89,26 @@ export async function getEmailEventsByOrderId(orderId: string) {
 }
 
 export async function getEmailEventsByStripeSessionId(stripeSessionId: string) {
+  await ensureIndexes();
   const db = await getDb();
   const docs = await db
     .collection<DbEmailEvent>(collectionName)
     .find({ stripeSessionId })
     .sort({ createdAt: -1 })
     .limit(20)
+    .toArray();
+  return docs.map(serializeEmailEvent).filter((event): event is EmailEvent => Boolean(event));
+}
+
+export async function getRecentEmailEvents(limit = 20) {
+  await ensureIndexes();
+  const db = await getDb();
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 50);
+  const docs = await db
+    .collection<DbEmailEvent>(collectionName)
+    .find({})
+    .sort({ createdAt: -1 })
+    .limit(safeLimit)
     .toArray();
   return docs.map(serializeEmailEvent).filter((event): event is EmailEvent => Boolean(event));
 }

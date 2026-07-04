@@ -1,27 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Order } from "@/lib/types";
+import type { PublicAccountOrder } from "@/lib/account-orders";
 import { formatPrice } from "@/lib/format";
-
-type CustomerProfile = {
-  _id?: string;
-  email: string;
-  name?: string;
-  phone?: string;
-  defaultAddress?: {
-    line1?: string;
-    line2?: string;
-    postalCode?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-  };
-};
+import { normalizeTrackingUrl } from "@/lib/order-tracking";
+import type { PublicCustomerProfile } from "@/lib/public-customer";
 
 export function AccountPageClient() {
-  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [customer, setCustomer] = useState<PublicCustomerProfile | null>(null);
+  const [orders, setOrders] = useState<PublicAccountOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
@@ -198,8 +185,11 @@ export function AccountPageClient() {
         <p className="mb-4 font-semibold text-slate-900">Historique commandes</p>
         <div className="space-y-3">
           {orders.map((order) => {
-            const id = order._id || order.stripeSessionId;
+            const id = order.reference;
             const isOpen = openOrderId === id;
+            const trackingUrl = normalizeTrackingUrl(
+              order.shippingTracking?.trackingUrl,
+            );
 
             return (
               <div
@@ -258,7 +248,7 @@ export function AccountPageClient() {
                           ? ` (${formatPrice(order.shippingAmount)})`
                           : ""}
                       </p>
-                      <p>Session Stripe: {order.stripeSessionId}</p>
+                      <p>Reference: {order.reference}</p>
                     </div>
 
                     {order.shippingAddress ? (
@@ -314,9 +304,9 @@ export function AccountPageClient() {
                           {order.shippingTracking.carrier || "Transporteur"} -{" "}
                           {order.shippingTracking.trackingNumber}
                         </p>
-                        {order.shippingTracking.trackingUrl ? (
+                        {trackingUrl ? (
                           <a
-                            href={order.shippingTracking.trackingUrl}
+                            href={trackingUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs font-semibold text-slate-900 underline"

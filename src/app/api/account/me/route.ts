@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomerFromRequest } from "@/lib/customer-auth";
+import { toPublicCustomerProfile } from "@/lib/public-customer";
 
 export async function GET(request: NextRequest) {
   const customer = await getCustomerFromRequest(request);
@@ -7,12 +8,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ customer: null });
   }
   return NextResponse.json({
-    customer: {
-      _id: customer._id,
-      email: customer.email,
-      name: customer.name,
-      phone: customer.phone,
-      defaultAddress: customer.defaultAddress,
-    },
+    customer: toPublicCustomerProfile(customer),
   });
 }

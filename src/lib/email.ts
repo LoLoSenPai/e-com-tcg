@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { createEmailEvent, updateEmailEvent } from "@/lib/email-events";
-import type { EmailEventType } from "@/lib/types";
+import type { EmailEvent, EmailEventStatus, EmailEventType } from "@/lib/types";
 
 function getResend() {
   const key = process.env.RESEND_API_KEY;
@@ -10,23 +10,41 @@ function getResend() {
   return new Resend(key);
 }
 
+export function resolveEmailFrom(
+  env: Partial<Pick<NodeJS.ProcessEnv, "EMAIL_FROM" | "NODE_ENV">> = process.env,
+) {
+  const from = env.EMAIL_FROM?.trim();
+  if (from) {
+    return from;
+  }
+  if (env.NODE_ENV === "production") {
+    throw new Error("Missing EMAIL_FROM.");
+  }
+  return "Returners <no-reply@returners.com>";
+}
+
 export async function sendEmail({
   to,
   subject,
   html,
+  idempotencyKey,
 }: {
   to: string;
   subject: string;
   html: string;
+  idempotencyKey?: string;
 }) {
-  const from = process.env.EMAIL_FROM || "Returners <no-reply@returners.com>";
+  const from = resolveEmailFrom();
   const resend = getResend();
-  const result = await resend.emails.send({
-    from,
-    to,
-    subject,
-    html,
-  });
+  const result = await resend.emails.send(
+    {
+      from,
+      to,
+      subject,
+      html,
+    },
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
 
   if (result.error) {
     throw new Error(result.error.message || "Resend email failed.");
@@ -37,6 +55,52 @@ export async function sendEmail({
   };
 }
 
+export function shouldCreateFallbackFailedEmailEvent(
+  finalEvent: { _id?: string } | null | undefined,
+) {
+  return !finalEvent?._id;
+}
+
+function buildSyntheticEmailEvent({
+  type,
+  status,
+  orderId,
+  stripeSessionId,
+  to,
+  subject,
+  providerId,
+  idempotencyKey,
+  error,
+  previousEvent,
+}: {
+  type: EmailEventType;
+  status: EmailEventStatus;
+  orderId?: string;
+  stripeSessionId?: string;
+  to?: string;
+  subject: string;
+  providerId?: string;
+  idempotencyKey?: string;
+  error?: string;
+  previousEvent?: EmailEvent | null;
+}): EmailEvent {
+  const now = new Date().toISOString();
+  return {
+    _id: previousEvent?._id,
+    type,
+    status,
+    to: to?.toLowerCase(),
+    subject,
+    orderId,
+    stripeSessionId,
+    providerId,
+    idempotencyKey,
+    error,
+    createdAt: previousEvent?.createdAt || now,
+    updatedAt: now,
+  };
+}
+
 export async function sendTrackedEmail({
   type,
   orderId,
@@ -44,6 +108,7 @@ export async function sendTrackedEmail({
   to,
   subject,
   html,
+  idempotencyKey,
 }: {
   type: EmailEventType;
   orderId?: string;
@@ -51,8 +116,9 @@ export async function sendTrackedEmail({
   to?: string;
   subject: string;
   html: string;
+  idempotencyKey?: string;
 }) {
-  let pendingEvent = null;
+  let pendingEvent: EmailEvent | null = null;
   try {
     pendingEvent = await createEmailEvent({
       type,
@@ -61,6 +127,7 @@ export async function sendTrackedEmail({
       subject,
       orderId,
       stripeSessionId,
+      idempotencyKey,
       error: to ? undefined : "Missing recipient email.",
     });
   } catch (error) {
@@ -71,29 +138,77 @@ export async function sendTrackedEmail({
   }
 
   if (!to) {
-    return pendingEvent;
+    return (
+      pendingEvent ||
+      buildSyntheticEmailEvent({
+        type,
+        status: "skipped",
+        orderId,
+        stripeSessionId,
+        to,
+        subject,
+        idempotencyKey,
+        error: "Missing recipient email.",
+      })
+    );
   }
 
   try {
-    const result = await sendEmail({ to, subject, html });
+    const result = await sendEmail({ to, subject, html, idempotencyKey });
+    let sentEvent: EmailEvent | null = null;
     try {
-      const sentEvent = await updateEmailEvent(pendingEvent?._id, {
+      sentEvent = await updateEmailEvent(pendingEvent?._id, {
         status: "sent",
         providerId: result.providerId,
       });
-      return sentEvent || pendingEvent;
     } catch (error) {
       console.warn(
         "Email event sent update failed.",
         error instanceof Error ? error.message : error,
       );
-      return pendingEvent;
     }
+
+    if (!sentEvent) {
+      try {
+        sentEvent = await createEmailEvent({
+          type,
+          status: "sent",
+          to,
+          subject,
+          orderId,
+          stripeSessionId,
+          providerId: result.providerId,
+          idempotencyKey,
+        });
+      } catch (error) {
+        console.warn(
+          "Email event sent fallback creation failed.",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
+    if (sentEvent) {
+      return sentEvent;
+    }
+
+    return buildSyntheticEmailEvent({
+      type,
+      status: "sent",
+      orderId,
+      stripeSessionId,
+      to,
+      subject,
+      providerId: result.providerId,
+      idempotencyKey,
+      previousEvent: pendingEvent,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Email delivery failed.";
+    let failedEvent: EmailEvent | null = null;
     try {
-      await updateEmailEvent(pendingEvent?._id, {
+      failedEvent = await updateEmailEvent(pendingEvent?._id, {
         status: "failed",
         error: message,
       });
@@ -103,6 +218,43 @@ export async function sendTrackedEmail({
         logError instanceof Error ? logError.message : logError,
       );
     }
+
+    if (shouldCreateFallbackFailedEmailEvent(failedEvent)) {
+      try {
+        await createEmailEvent({
+          type,
+          status: "failed",
+          to,
+          subject,
+          orderId,
+          stripeSessionId,
+          idempotencyKey,
+          error: message,
+        });
+      } catch (logError) {
+        console.warn(
+          "Email event failed fallback creation failed.",
+          logError instanceof Error ? logError.message : logError,
+        );
+      }
+    }
+
     throw error;
   }
+}
+
+export function buildEmailIdempotencyKey(
+  type: EmailEventType,
+  parts: Array<string | number | undefined | null>,
+) {
+  const normalizedParts = parts
+    .map((part) => String(part || "").trim().toLowerCase())
+    .filter(Boolean)
+    .map((part) => part.replace(/[^a-z0-9._:-]+/g, "-"));
+
+  if (!normalizedParts.length) {
+    return undefined;
+  }
+
+  return [type, ...normalizedParts].join(":").slice(0, 256);
 }

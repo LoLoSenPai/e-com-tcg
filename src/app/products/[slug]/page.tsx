@@ -9,6 +9,11 @@ import {
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { BuyNowButton } from "@/components/buy-now-button";
 import { ProductCard } from "@/components/product-card";
+import { serializeJsonLd } from "@/lib/json-ld";
+import {
+  getAbsoluteProductImageUrl,
+  normalizeProductImageSource,
+} from "@/lib/product-media";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +50,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
   const languageFlagEmoji = getLanguageFlagEmoji(product.language);
+  const productImage = normalizeProductImageSource(product.image);
+  const productImageUrl = getAbsoluteProductImageUrl(productImage);
   const outOfStock = (product.stock ?? 0) <= 0;
   const products = await getProducts();
   const related = products
@@ -56,14 +63,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             "@context": "https://schema.org",
             "@type": "Product",
             name: product.name,
             description: product.description,
-            image: product.image
-              ? [new URL(product.image, process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").toString()]
-              : undefined,
+            image: productImageUrl ? [productImageUrl] : undefined,
             offers: {
               "@type": "Offer",
               priceCurrency: "EUR",
@@ -88,16 +93,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div
             className="grid aspect-[3/4] place-items-center rounded-2xl bg-[linear-gradient(140deg,rgba(255,107,53,0.18),rgba(46,196,182,0.25))] text-sm font-semibold text-slate-600"
             style={
-              product.image
+              productImage
                 ? {
-                  backgroundImage: `url(${product.image})`,
+                  backgroundImage: `url(${productImage})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
                 : undefined
             }
           >
-            {!product.image ? "Artset preview" : ""}
+            {!productImage ? "Artset preview" : ""}
           </div>
           <div className="mt-6 flex flex-wrap gap-2 text-xs text-slate-500">
             {product.tags?.map((tag) => (

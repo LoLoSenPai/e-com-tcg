@@ -4,7 +4,7 @@ export const adminCookieName = "admin_session";
 const maxAgeSeconds = 60 * 60 * 24 * 7;
 
 function getAdminSecret() {
-  const secret = process.env.ADMIN_TOKEN;
+  const secret = process.env.ADMIN_TOKEN?.trim();
   if (!secret) {
     throw new Error("Missing ADMIN_TOKEN.");
   }
@@ -32,6 +32,25 @@ export function createAdminSession() {
   const timestamp = Date.now();
   const signature = signSession(timestamp, secret);
   return `${timestamp}.${signature}`;
+}
+
+export function verifyAdminToken(
+  input: unknown,
+  secret = process.env.ADMIN_TOKEN,
+) {
+  if (typeof input !== "string" || !secret?.trim()) {
+    return false;
+  }
+
+  const inputHash = crypto
+    .createHash("sha256")
+    .update(input.trim())
+    .digest();
+  const secretHash = crypto
+    .createHash("sha256")
+    .update(secret.trim())
+    .digest();
+  return crypto.timingSafeEqual(inputHash, secretHash);
 }
 
 export function isAdminSession(value?: string | null) {

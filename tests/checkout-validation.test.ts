@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   getCheckoutBaseUrl,
+  getProductionSiteUrlProblem,
   maxCheckoutItems,
   normalizeCheckoutItems,
 } from "../src/lib/checkout-validation";
@@ -53,6 +54,36 @@ describe("checkout validation", () => {
         isProduction: true,
       }),
       "",
+    );
+  });
+
+  it("requires a public HTTPS site URL for production Stripe redirects", () => {
+    assert.equal(getProductionSiteUrlProblem("https://returners.example"), null);
+    assert.equal(
+      getCheckoutBaseUrl({
+        configuredSiteUrl: "https://returners.example/path",
+        requestOrigin: "https://malicious.example",
+        requestUrl: "https://e-com-tcg.vercel.app/api/checkout",
+        isProduction: true,
+      }),
+      "https://returners.example",
+    );
+    assert.equal(
+      getProductionSiteUrlProblem("http://localhost:3000"),
+      "Production URL must use https",
+    );
+    assert.equal(
+      getCheckoutBaseUrl({
+        configuredSiteUrl: "http://localhost:3000",
+        requestOrigin: "https://e-com-tcg.vercel.app",
+        requestUrl: "https://e-com-tcg.vercel.app/api/checkout",
+        isProduction: true,
+      }),
+      "",
+    );
+    assert.equal(
+      getProductionSiteUrlProblem("https://localhost:3000"),
+      "Production URL must be public, not localhost",
     );
   });
 

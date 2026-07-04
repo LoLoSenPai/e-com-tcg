@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
+import { isAdminMaintenanceRouteEnabled } from "@/lib/admin-route-flags";
 import { getDb } from "@/lib/db";
 import type { Product } from "@/lib/types";
 
@@ -26,6 +27,9 @@ function inferFranchise(product: Product) {
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isAdminMaintenanceRouteEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (!process.env.MONGODB_URI) {
     return NextResponse.json(

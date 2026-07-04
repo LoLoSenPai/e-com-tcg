@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Order, OrderStatus } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
+import { hasOrderTrackingDeliveryDetails } from "@/lib/order-tracking";
 
 type Stats = {
   totalOrders: number;
@@ -181,6 +182,12 @@ export function AdminOrdersClient() {
       <div className="grid gap-4">
         {filtered.map((order) => {
           const orderId = order._id ? String(order._id) : "";
+          const canSelectShipped =
+            order.status === "shipped" || hasOrderTrackingDeliveryDetails(order);
+          const canSelectDelivered =
+            order.status === "delivered" ||
+            order.status === "shipped" ||
+            hasOrderTrackingDeliveryDetails(order);
 
           return (
             <div
@@ -218,8 +225,12 @@ export function AdminOrdersClient() {
                   >
                     <option value="paid">Payee</option>
                     <option value="preparation">Preparation</option>
-                    <option value="shipped">Expediee</option>
-                    <option value="delivered">Livree</option>
+                    <option value="shipped" disabled={!canSelectShipped}>
+                      Expediee
+                    </option>
+                    <option value="delivered" disabled={!canSelectDelivered}>
+                      Livree
+                    </option>
                   </select>
                 </div>
               </div>

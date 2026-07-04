@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
-import { deleteProductBySlug, updateProductBySlug } from "@/lib/products";
+import {
+  deleteProductBySlug,
+  DuplicateProductSlugError,
+  updateProductBySlug,
+} from "@/lib/products";
+import { validateAdminProductInput } from "@/lib/product-validation";
 
 function isAuthorized(request: NextRequest) {
   const sessionValue = request.cookies.get(adminCookieName)?.value;
@@ -23,21 +28,29 @@ export async function PUT(
   }
 
   const body = await request.json().catch(() => ({}));
-  const payload = {
-    ...body,
-    price: body.price ? Number(body.price) : undefined,
-    stock: body.stock ? Number(body.stock) : undefined,
-    tags:
-      typeof body.tags === "string"
-        ? body.tags.split(",").map((tag: string) => tag.trim())
-        : body.tags,
-  };
-
-  const updated = await updateProductBySlug(slug, payload);
-  if (!updated) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const validation = validateAdminProductInput(body, { partial: true });
+  if (!validation.ok) {
+    return NextResponse.json(
+      { error: validation.error },
+      { status: 400 },
+    );
   }
-  return NextResponse.json({ product: updated });
+
+  try {
+    const updated = await updateProductBySlug(slug, validation.product);
+    if (!updated) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ product: updated });
+  } catch (error) {
+    if (error instanceof DuplicateProductSlugError) {
+      return NextResponse.json(
+        { error: "Product slug already exists" },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(

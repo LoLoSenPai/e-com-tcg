@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EmailEvent, Order, OrderStatus } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
+import {
+  hasOrderTrackingDeliveryDetails,
+  normalizeTrackingUrl,
+} from "@/lib/order-tracking";
 
 const statusLabels: Record<OrderStatus, string> = {
   paid: "Payee",
@@ -124,7 +128,7 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
       setShippingOffers(payload.offers || []);
       setShippingOfferCode(
         (current) =>
-          current || payload.offers?.[0]?.code || order?.boxtalShipment?.shippingOfferCode || "",
+          current || order?.boxtalShipment?.shippingOfferCode || "",
       );
     } catch (error) {
       setShippingOffers([]);
@@ -331,6 +335,19 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
 
   const failedStockAdjustments =
     order.stockAdjustments?.filter((adjustment) => !adjustment.applied) ?? [];
+  const canSendTrackingEmail = hasOrderTrackingDeliveryDetails(order);
+  const canSelectShipped = order.status === "shipped" || canSendTrackingEmail;
+  const canSelectDelivered =
+    order.status === "delivered" || order.status === "shipped" || canSendTrackingEmail;
+  const orderConfirmationEmailStatus = order.emailStatus?.orderConfirmation;
+  const trackingEmailStatus = order.emailStatus?.shippingTracking;
+  const boxtalTrackingUrl = normalizeTrackingUrl(
+    order.boxtalShipment?.trackingUrl,
+  );
+  const boxtalLabelUrl = normalizeTrackingUrl(order.boxtalShipment?.labelUrl);
+  const manualTrackingUrl = normalizeTrackingUrl(
+    order.shippingTracking?.trackingUrl,
+  );
 
   return (
     <div className="space-y-6">
@@ -356,8 +373,12 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           >
             <option value="paid">Payee</option>
             <option value="preparation">Preparation</option>
-            <option value="shipped">Expediee</option>
-            <option value="delivered">Livree</option>
+            <option value="shipped" disabled={!canSelectShipped}>
+              Expediee
+            </option>
+            <option value="delivered" disabled={!canSelectDelivered}>
+              Livree
+            </option>
           </select>
         </div>
         {orderMessage ? (
@@ -479,7 +500,11 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           <button
             type="button"
             onClick={() => handleSendEmail("shipping_tracking")}
-            disabled={!order.customerEmail || sendingEmailType !== null}
+            disabled={
+              !order.customerEmail ||
+              !canSendTrackingEmail ||
+              sendingEmailType !== null
+            }
             className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sendingEmailType === "shipping_tracking"
@@ -487,6 +512,52 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               : "Renvoyer suivi"}
           </button>
         </div>
+        {!canSendTrackingEmail ? (
+          <p className="mt-3 text-xs text-slate-500">
+            Ajoute un numero ou une URL de suivi avant d&apos;envoyer l&apos;email de
+            suivi.
+          </p>
+        ) : null}
+        {orderConfirmationEmailStatus || trackingEmailStatus ? (
+          <div className="mt-4 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+            {orderConfirmationEmailStatus ? (
+              <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
+                <p className="font-semibold text-slate-900">
+                  Confirmation - {orderConfirmationEmailStatus.status}
+                </p>
+                <p>
+                  {new Date(
+                    orderConfirmationEmailStatus.updatedAt,
+                  ).toLocaleString("fr-FR")}
+                  {orderConfirmationEmailStatus.to
+                    ? ` - ${orderConfirmationEmailStatus.to}`
+                    : ""}
+                </p>
+                {orderConfirmationEmailStatus.error ? (
+                  <p className="text-rose-700">
+                    {orderConfirmationEmailStatus.error}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {trackingEmailStatus ? (
+              <div className="rounded-xl border border-black/10 bg-white px-3 py-2">
+                <p className="font-semibold text-slate-900">
+                  Suivi - {trackingEmailStatus.status}
+                </p>
+                <p>
+                  {new Date(trackingEmailStatus.updatedAt).toLocaleString(
+                    "fr-FR",
+                  )}
+                  {trackingEmailStatus.to ? ` - ${trackingEmailStatus.to}` : ""}
+                </p>
+                {trackingEmailStatus.error ? (
+                  <p className="text-rose-700">{trackingEmailStatus.error}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {emailMessage ? (
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             {emailMessage}
@@ -658,9 +729,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
-              {order.boxtalShipment.trackingUrl ? (
+              {boxtalTrackingUrl ? (
                 <a
-                  href={order.boxtalShipment.trackingUrl}
+                  href={boxtalTrackingUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-full bg-black px-4 py-2 text-xs font-semibold text-white"
@@ -668,9 +739,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
                   Ouvrir suivi transporteur
                 </a>
               ) : null}
-              {order.boxtalShipment.labelUrl ? (
+              {boxtalLabelUrl ? (
                 <a
-                  href={order.boxtalShipment.labelUrl}
+                  href={boxtalLabelUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-full border-2 border-black px-4 py-2 text-xs font-semibold text-slate-900"
@@ -720,9 +791,9 @@ export function AdminOrderDetailClient({ id }: AdminOrderDetailClientProps) {
           >
             Enregistrer le suivi
           </button>
-          {order.shippingTracking?.trackingUrl ? (
+          {manualTrackingUrl ? (
             <a
-              href={order.shippingTracking.trackingUrl}
+              href={manualTrackingUrl}
               target="_blank"
               rel="noreferrer"
               className="text-xs font-semibold text-slate-600"

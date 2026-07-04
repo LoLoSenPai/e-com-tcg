@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCustomer, getCustomerByEmail } from "@/lib/customers";
+import {
+  createCustomer,
+  DuplicateCustomerEmailError,
+  getCustomerByEmail,
+  normalizeCustomerEmail,
+} from "@/lib/customers";
 import { createCustomerSession, customerCookieName, getCustomerMaxAge } from "@/lib/customer-auth";
 import { hashPassword } from "@/lib/customer-password";
+import { toPublicCustomerProfile } from "@/lib/public-customer";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -18,7 +24,7 @@ export async function POST(request: NextRequest) {
     );
   }
   const body = await request.json().catch(() => ({}));
-  const email = String(body.email || "").trim().toLowerCase();
+  const email = normalizeCustomerEmail(String(body.email || ""));
   const password = String(body.password || "");
   const name = String(body.name || "").trim();
   if (!email || !password) {
@@ -33,18 +39,26 @@ export async function POST(request: NextRequest) {
   }
   const now = new Date().toISOString();
   const passwordHash = await hashPassword(password);
-  const created = await createCustomer({
-    email,
-    name,
-    passwordHash,
-    createdAt: now,
-    updatedAt: now,
-  });
+  let created;
+  try {
+    created = await createCustomer({
+      email,
+      name,
+      passwordHash,
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (error) {
+    if (error instanceof DuplicateCustomerEmailError) {
+      return NextResponse.json({ error: "Email already used" }, { status: 409 });
+    }
+    throw error;
+  }
   if (!created?._id) {
     return NextResponse.json({ error: "Create failed" }, { status: 500 });
   }
   const response = NextResponse.json({
-    customer: { _id: created._id, email: created.email, name: created.name },
+    customer: toPublicCustomerProfile(created),
   });
   response.cookies.set({
     name: customerCookieName,

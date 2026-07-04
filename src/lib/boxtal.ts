@@ -1,4 +1,6 @@
 import type { Order } from "@/lib/types";
+import { normalizeRelayPointInput } from "@/lib/relay-selection";
+import type { ShippingRelayPoint } from "@/lib/types";
 
 type BoxtalTokenPayload = {
   accessToken?: string;
@@ -13,7 +15,7 @@ type BoxtalShippingOfferItem = {
   label: string;
 };
 
-type BoxtalShipmentResult = {
+export type BoxtalShipmentResult = {
   boxtalOrderId?: string;
   shippingOfferCode?: string;
   status?: string;
@@ -94,6 +96,7 @@ type BoxtalShipperConfig = {
 };
 
 type BoxtalCredentialSource = "api" | "default" | "map";
+type BoxtalServerCredentialSource = Exclude<BoxtalCredentialSource, "map">;
 
 type BoxtalCredential = {
   source: BoxtalCredentialSource;
@@ -144,9 +147,9 @@ function getBoxtalApiBaseUrl() {
   return process.env.BOXTAL_API_BASE_URL || "https://api.boxtal.build/shipping";
 }
 
-function getDefaultTokenUrl() {
+function getDefaultTokenUrl(env: Env = process.env) {
   return (
-    process.env.BOXTAL_TOKEN_URL ||
+    env.BOXTAL_TOKEN_URL ||
     "https://private-gateway.boxtal.com/iam/account-app/token"
   );
 }
@@ -181,6 +184,7 @@ function buildCredential(
   accessKey: string | undefined,
   secretKey: string | undefined,
   tokenUrl: string | undefined,
+  env: Env = process.env,
 ): BoxtalCredential | null {
   if (!accessKey || !secretKey) {
     return null;
@@ -189,42 +193,57 @@ function buildCredential(
     source,
     accessKey,
     secretKey,
-    tokenUrl: tokenUrl || getDefaultTokenUrl(),
+    tokenUrl: tokenUrl || getDefaultTokenUrl(env),
   };
 }
 
-function getBoxtalCredential(source: BoxtalCredentialSource) {
+type Env = Record<string, string | undefined>;
+
+function getBoxtalCredential(source: BoxtalCredentialSource, env: Env = process.env) {
   if (source === "api") {
     return buildCredential(
       "api",
-      process.env.BOXTAL_API_ACCESS_KEY,
-      process.env.BOXTAL_API_SECRET_KEY,
-      process.env.BOXTAL_API_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
+      env.BOXTAL_API_ACCESS_KEY,
+      env.BOXTAL_API_SECRET_KEY,
+      env.BOXTAL_API_TOKEN_URL || env.BOXTAL_TOKEN_URL,
+      env,
     );
   }
   if (source === "default") {
     return buildCredential(
       "default",
-      process.env.BOXTAL_ACCESS_KEY,
-      process.env.BOXTAL_SECRET_KEY,
-      process.env.BOXTAL_TOKEN_URL,
+      env.BOXTAL_ACCESS_KEY,
+      env.BOXTAL_SECRET_KEY,
+      env.BOXTAL_TOKEN_URL,
+      env,
     );
   }
   return buildCredential(
     "map",
-    process.env.BOXTAL_MAP_ACCESS_KEY,
-    process.env.BOXTAL_MAP_SECRET_KEY,
-    process.env.BOXTAL_MAP_TOKEN_URL || process.env.BOXTAL_TOKEN_URL,
+    env.BOXTAL_MAP_ACCESS_KEY,
+    env.BOXTAL_MAP_SECRET_KEY,
+    env.BOXTAL_MAP_TOKEN_URL || env.BOXTAL_TOKEN_URL,
+    env,
   );
 }
 
-function getBoxtalCredentialCandidates(options?: { dedupe?: boolean }): BoxtalCredential[] {
+export function getBoxtalServerCredentialSourceOrder(env: Env = process.env) {
+  return (["api", "default"] satisfies BoxtalServerCredentialSource[]).filter(
+    (source) => Boolean(getBoxtalCredential(source, env)),
+  );
+}
+
+function getBoxtalCredentialCandidates(options?: {
+  dedupe?: boolean;
+  env?: Env;
+  sources?: readonly BoxtalCredentialSource[];
+}): BoxtalCredential[] {
   const dedupe = options?.dedupe ?? true;
-  const candidates = [
-    getBoxtalCredential("api"),
-    getBoxtalCredential("default"),
-    getBoxtalCredential("map"),
-  ].filter((candidate): candidate is BoxtalCredential => candidate !== null);
+  const env = options?.env || process.env;
+  const sourceOrder = options?.sources || (["api", "default"] as const);
+  const candidates = sourceOrder
+    .map((source) => getBoxtalCredential(source, env))
+    .filter((candidate): candidate is BoxtalCredential => candidate !== null);
 
   if (!dedupe) {
     return candidates;
@@ -564,6 +583,7 @@ async function boxtalFetch(
 
   for (const candidate of candidates) {
     const sourceError: Record<string, unknown> = {};
+    let bearerApiError: BoxtalApiError | null = null;
 
     try {
       const token = await getBoxtalAccessToken(candidate);
@@ -582,14 +602,19 @@ async function boxtalFetch(
       };
 
       if (bearerResponse.status !== 401 && bearerResponse.status !== 403) {
-        throw new BoxtalApiError(
+        bearerApiError = new BoxtalApiError(
           `Boxtal API error (${bearerResponse.status}) on ${normalizePath(path)} [source=${candidate.source}]`,
           bearerResponse.status,
           bearerResponse.payload,
         );
+        throw bearerApiError;
       }
       clearCachedToken(candidate.source);
     } catch (error) {
+      if (bearerApiError && error === bearerApiError) {
+        errorsBySource[candidate.source] = sourceError;
+        throw error;
+      }
       sourceError.token = error instanceof Error ? error.message : error;
     }
 
@@ -669,6 +694,51 @@ function findFirstStringByKeys(
   }
 
   return undefined;
+}
+
+function findFirstNumberByKeys(
+  value: unknown,
+  keys: readonly string[],
+): number | undefined {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findFirstNumberByKeys(item, keys);
+      if (typeof found === "number") return found;
+    }
+    return undefined;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  for (const key of keys) {
+    const raw = value[key];
+    const direct =
+      typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+    if (Number.isFinite(direct)) {
+      return direct;
+    }
+  }
+
+  for (const nested of Object.values(value)) {
+    const found = findFirstNumberByKeys(nested, keys);
+    if (typeof found === "number") return found;
+  }
+
+  return undefined;
+}
+
+function normalizeCountryIso2(country?: string) {
+  const upper = toNonEmptyString(country)?.toUpperCase();
+  if (!upper) return "FR";
+  const alpha3ToAlpha2: Record<string, string> = {
+    BEL: "BE",
+    CHE: "CH",
+    FRA: "FR",
+    LUX: "LU",
+  };
+  return alpha3ToAlpha2[upper] || upper.slice(0, 2);
 }
 
 function getEnvNumber(name: string, fallback: number) {
@@ -975,6 +1045,140 @@ function getResponseContentArray(payload: unknown) {
   return [];
 }
 
+function getRelayCandidateRecord(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const nested =
+    value.parcelpoint ||
+    value.parcelPoint ||
+    value.parcel_point ||
+    value.pickupPoint ||
+    value.pickup_point;
+  return isRecord(nested) ? nested : value;
+}
+
+function relayPointFromBoxtalCandidate(
+  candidate: unknown,
+  requestedCode: string,
+): ShippingRelayPoint | null {
+  const record = getRelayCandidateRecord(candidate);
+  if (!record) {
+    return null;
+  }
+
+  const code = findFirstStringByKeys(record, [
+    "code",
+    "id",
+    "parcelPointCode",
+    "pickupPointCode",
+  ]);
+  if (!code || code.toLowerCase() !== requestedCode.toLowerCase()) {
+    return null;
+  }
+
+  const relayPoint: ShippingRelayPoint = {
+    code,
+    name:
+      findFirstStringByKeys(record, [
+        "name",
+        "label",
+        "commercialName",
+        "companyName",
+      ]) || code,
+    network: findFirstStringByKeys(record, [
+      "network",
+      "networkCode",
+      "carrierCode",
+    ]),
+    address: {
+      line1: findFirstStringByKeys(record, [
+        "street",
+        "streetName",
+        "address",
+        "address1",
+        "line1",
+      ]),
+      zipCode: findFirstStringByKeys(record, [
+        "zipCode",
+        "postalCode",
+        "postcode",
+      ]),
+      city: findFirstStringByKeys(record, ["city", "locality"]),
+      country: normalizeCountryIso2(
+        findFirstStringByKeys(record, [
+          "country",
+          "countryIsoCode",
+          "countryCode",
+        ]),
+      ),
+    },
+    latitude: findFirstNumberByKeys(record, ["latitude", "lat"]),
+    longitude: findFirstNumberByKeys(record, ["longitude", "lng", "lon"]),
+  };
+
+  const normalized = normalizeRelayPointInput(relayPoint);
+  return normalized.ok ? normalized.relayPoint : null;
+}
+
+export function findBoxtalRelayPointInPayload(
+  payload: unknown,
+  requestedCode: string,
+) {
+  const candidates = getResponseContentArray(payload);
+  for (const candidate of candidates.length > 0 ? candidates : [payload]) {
+    const relayPoint = relayPointFromBoxtalCandidate(candidate, requestedCode);
+    if (relayPoint) {
+      return relayPoint;
+    }
+  }
+  return null;
+}
+
+function buildRelayPointSearchPath(selection: ShippingRelayPoint) {
+  const relayOfferCode = toNonEmptyString(
+    process.env.BOXTAL_SHIPPING_OFFER_CODE_RELAY,
+  );
+  if (!relayOfferCode) {
+    throw new BoxtalApiError(
+      "Missing BOXTAL_SHIPPING_OFFER_CODE_RELAY.",
+      400,
+    );
+  }
+
+  const params = new URLSearchParams({
+    operationType: "ARRIVAL",
+    shippingOfferCode: relayOfferCode,
+    postalCode: selection.address?.zipCode || "",
+    city: selection.address?.city || "",
+    countryIsoCode: normalizeCountryIso2(selection.address?.country),
+  });
+
+  return `/v3.2/parcel-point-by-shipping-offer?${params.toString()}`;
+}
+
+export async function resolveBoxtalRelayPoint(selection: unknown) {
+  const normalized = normalizeRelayPointInput(selection);
+  if (!normalized.ok) {
+    throw new BoxtalApiError(normalized.error, 400);
+  }
+
+  const payload = await boxtalFetch(buildRelayPointSearchPath(normalized.relayPoint), {
+    method: "GET",
+  });
+  const relayPoint = findBoxtalRelayPointInPayload(
+    payload,
+    normalized.relayPoint.code,
+  );
+  if (!relayPoint) {
+    throw new BoxtalApiError(
+      "Invalid relay point selection.",
+      400,
+    );
+  }
+  return relayPoint;
+}
+
 function mergeShipmentResults(
   ...results: Array<Partial<BoxtalShipmentResult> | null | undefined>
 ): BoxtalShipmentResult {
@@ -1113,6 +1317,66 @@ function normalizeDocumentResult(
     relayCode,
     raw: isRecord(payload) ? payload : undefined,
   };
+}
+
+function getWebhookPayload(payload: unknown) {
+  return isRecord(payload) && "payload" in payload ? payload.payload : payload;
+}
+
+function normalizeContentCollection(payload: unknown, key: "trackings" | "documents") {
+  if (isRecord(payload) && Array.isArray(payload[key])) {
+    return { content: payload[key] };
+  }
+  return payload;
+}
+
+export function hasBoxtalShipmentDetails(
+  shipment: Partial<BoxtalShipmentResult> | null | undefined,
+) {
+  return Boolean(
+    shipment?.status ||
+      shipment?.carrier ||
+      shipment?.trackingNumber ||
+      shipment?.trackingUrl ||
+      shipment?.labelUrl,
+  );
+}
+
+export function normalizeBoxtalWebhookShipment(
+  payload: unknown,
+  seed?: Partial<BoxtalShipmentResult>,
+): BoxtalShipmentResult {
+  const eventPayload = getWebhookPayload(payload);
+  const shippingOfferCode = seed?.shippingOfferCode;
+  const relayCode = seed?.relayCode;
+
+  return mergeShipmentResults(
+    seed,
+    {
+      boxtalOrderId: findFirstStringByKeys(payload, [
+        "shippingOrderId",
+        "orderId",
+        "id",
+        "uuid",
+      ]),
+      shippingOfferCode,
+      relayCode,
+    },
+    normalizeShipmentResult(payload, shippingOfferCode, relayCode),
+    eventPayload === payload
+      ? undefined
+      : normalizeShipmentResult(eventPayload, shippingOfferCode, relayCode),
+    normalizeTrackingResult(
+      normalizeContentCollection(eventPayload, "trackings"),
+      shippingOfferCode,
+      relayCode,
+    ),
+    normalizeDocumentResult(
+      normalizeContentCollection(eventPayload, "documents"),
+      shippingOfferCode,
+      relayCode,
+    ),
+  );
 }
 
 async function fetchOptionalBoxtalTracking(

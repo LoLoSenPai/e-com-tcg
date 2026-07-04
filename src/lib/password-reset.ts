@@ -13,9 +13,23 @@ type PasswordResetDoc = {
 };
 
 const collectionName = "password_resets";
+let indexesPromise: Promise<void> | null = null;
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function ensureIndexes() {
+  if (!indexesPromise) {
+    indexesPromise = getDb().then(async (db) => {
+      const collection = db.collection<PasswordResetDoc>(collectionName);
+      await Promise.all([
+        collection.createIndex({ email: 1, tokenHash: 1, usedAt: 1 }),
+        collection.createIndex({ expiresAt: 1 }),
+      ]);
+    });
+  }
+  return indexesPromise;
 }
 
 export async function createPasswordResetToken({
@@ -25,6 +39,7 @@ export async function createPasswordResetToken({
   customerId: string;
   email: string;
 }) {
+  await ensureIndexes();
   const token = crypto.randomBytes(32).toString("hex");
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1h
@@ -46,6 +61,7 @@ export async function consumePasswordResetToken({
   email: string;
   token: string;
 }) {
+  await ensureIndexes();
   const db = await getDb();
   const nowIso = new Date().toISOString();
   const result = await db.collection<PasswordResetDoc>(collectionName).findOneAndUpdate(

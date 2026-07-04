@@ -1,6 +1,9 @@
 import type {
   CheckoutSessionItem,
+  Customer,
   Order,
+  OrderEmailDelivery,
+  OrderEmailStatus,
   OrderStatus,
   Product,
   StockAdjustment,
@@ -28,6 +31,20 @@ type CreateOrderOnceResult = {
 type CreateOrderWithStockResult = CreateOrderOnceResult & {
   stockAdjustments: StockAdjustment[];
 };
+
+export class OrderStockAdjustmentError extends Error {
+  adjustments: StockAdjustment[];
+
+  constructor(message: string, adjustments: StockAdjustment[]) {
+    super(message);
+    this.name = "OrderStockAdjustmentError";
+    this.adjustments = adjustments;
+  }
+}
+
+export function hasFailedStockAdjustment(adjustments: StockAdjustment[] = []) {
+  return adjustments.some((adjustment) => !adjustment.applied);
+}
 
 function serializeOrder(doc: DbOrder & { _id?: ObjectId }) {
   return {
@@ -65,6 +82,7 @@ async function ensureIndexes() {
       }
       await Promise.all([
         collection.createIndex({ customerEmail: 1, createdAt: -1 }),
+        collection.createIndex({ customerId: 1, createdAt: -1 }),
         collection.createIndex({ createdAt: -1 }),
       ]);
     });
@@ -109,6 +127,7 @@ export async function createOrderOnce(order: Order): Promise<CreateOrderOnceResu
 export async function createOrderWithStockAdjustments(
   order: Order,
   stockItems: Array<Pick<CheckoutSessionItem, "slug" | "quantity">> = [],
+  options: { persistOnStockFailure?: boolean } = {},
 ): Promise<CreateOrderWithStockResult> {
   await ensureIndexes();
   const existingOrder = await getOrderByStripeSessionId(order.stripeSessionId);
@@ -124,7 +143,7 @@ export async function createOrderWithStockAdjustments(
   const db = client.db(getDbName());
   const session = client.startSession();
   let createdOrder: Order | null = null;
-  let stockAdjustments: StockAdjustment[] = [];
+  let stockAdjustments: StockAdjustment[] = order.stockAdjustments || [];
 
   try {
     await session.withTransaction(async () => {
@@ -153,16 +172,27 @@ export async function createOrderWithStockAdjustments(
           { $inc: { stock: -item.quantity } },
           { session },
         );
+        const applied = update.modifiedCount === 1;
 
         transactionStockAdjustments.push({
           slug: item.slug,
           quantity: item.quantity,
-          applied: update.modifiedCount === 1,
+          applied,
           reason:
-            update.modifiedCount === 1
+            applied
               ? undefined
               : "Stock insuffisant ou produit introuvable au moment du paiement.",
         });
+
+        if (!applied) {
+          if (options.persistOnStockFailure) {
+            continue;
+          }
+          throw new OrderStockAdjustmentError(
+            `Stock adjustment failed for product ${item.slug}.`,
+            transactionStockAdjustments,
+          );
+        }
       }
 
       const updatedAt = new Date().toISOString();
@@ -172,9 +202,9 @@ export async function createOrderWithStockAdjustments(
           { $set: { stockAdjustments: transactionStockAdjustments, updatedAt } },
           { session },
         );
+        stockAdjustments = transactionStockAdjustments;
       }
 
-      stockAdjustments = transactionStockAdjustments;
       createdOrder = {
         ...order,
         _id: orderId,
@@ -237,6 +267,63 @@ export async function getOrdersByCustomerEmail(email: string) {
   return docs.map(serializeOrder);
 }
 
+export function buildCustomerOrdersFilter(
+  customer: Pick<Customer, "_id"> | null | undefined,
+) {
+  return customer?._id ? { customerId: customer._id } : null;
+}
+
+export async function getOrdersByCustomer(
+  customer: Pick<Customer, "_id"> | null | undefined,
+) {
+  const filter = buildCustomerOrdersFilter(customer);
+  if (!filter) {
+    return [];
+  }
+
+  const db = await getDb();
+  const docs = await db
+    .collection<DbOrder>(collectionName)
+    .find(filter)
+    .sort({ createdAt: -1 })
+    .toArray();
+  return docs.map(serializeOrder);
+}
+
+export async function getOrdersWithRetryableEmailFailures({
+  cutoffIso,
+  limit = 10,
+}: {
+  cutoffIso: string;
+  limit?: number;
+}) {
+  const db = await getDb();
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 25);
+  const docs = await db
+    .collection<DbOrder>(collectionName)
+    .find({
+      customerEmail: { $type: "string", $ne: "" },
+      $or: [
+        {
+          "emailStatus.orderConfirmation.status": {
+            $in: ["failed", "pending"],
+          },
+          "emailStatus.orderConfirmation.updatedAt": { $lte: cutoffIso },
+        },
+        {
+          "emailStatus.shippingTracking.status": {
+            $in: ["failed", "pending"],
+          },
+          "emailStatus.shippingTracking.updatedAt": { $lte: cutoffIso },
+        },
+      ],
+    })
+    .sort({ updatedAt: -1 })
+    .limit(safeLimit)
+    .toArray();
+  return docs.map(serializeOrder);
+}
+
 export async function getOrderById(id: string) {
   if (!ObjectId.isValid(id)) {
     return null;
@@ -294,6 +381,31 @@ export async function updateOrderFields(
       { _id: new ObjectId(id) },
       { $set: { ...updates, updatedAt: now } },
     );
+  const doc = await db
+    .collection<DbOrder>(collectionName)
+    .findOne({ _id: new ObjectId(id) });
+  return doc ? serializeOrder(doc) : null;
+}
+
+export async function updateOrderEmailDelivery(
+  id: string | undefined,
+  key: keyof OrderEmailStatus,
+  delivery: OrderEmailDelivery,
+) {
+  if (!id || !ObjectId.isValid(id)) {
+    return null;
+  }
+  const db = await getDb();
+  const now = new Date().toISOString();
+  await db.collection<DbOrder>(collectionName).updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        [`emailStatus.${key}`]: delivery,
+        updatedAt: now,
+      },
+    },
+  );
   const doc = await db
     .collection<DbOrder>(collectionName)
     .findOne({ _id: new ObjectId(id) });

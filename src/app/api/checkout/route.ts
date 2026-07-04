@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProductsBySlugs } from "@/lib/products";
+import { BoxtalApiError, resolveBoxtalRelayPoint } from "@/lib/boxtal";
+import { getProductsBySlugsStrict, ProductLookupError } from "@/lib/products";
 import { getStripe } from "@/lib/stripe";
 import { getCustomerFromRequest } from "@/lib/customer-auth";
 import type { CheckoutSessionItem, ShippingRelayPoint } from "@/lib/types";
 import { getShippingQuotes } from "@/lib/shipping";
-import { createCheckoutSessionRecord } from "@/lib/checkout-sessions";
+import {
+  CheckoutStockReservationError,
+  createCheckoutSessionRecord,
+  markCheckoutSessionStockReservationFailed,
+  reserveCheckoutSessionStock,
+} from "@/lib/checkout-sessions";
 import {
   getCheckoutBaseUrl,
   maxCheckoutItems,
   normalizeCheckoutItems,
 } from "@/lib/checkout-validation";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { getCheckoutSessionExpiresAt } from "@/lib/stripe-checkout";
+import { verifyRelayPointSelection } from "@/lib/relay-selection";
 
 type CartItem = {
   slug: string;
@@ -27,6 +36,24 @@ function cleanMetadataValue(value: string, maxLength = 250) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  const limit = checkRateLimit({
+    key: `checkout-create:${ip}`,
+    max: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many checkout attempts" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)),
+        },
+      },
+    );
+  }
+
   let body: CheckoutBody;
   try {
     body = await request.json();
@@ -59,20 +86,42 @@ export async function POST(request: NextRequest) {
   }
 
   const deliveryMode = body.deliveryMode === "relay" ? "relay" : "home";
-  const relayPoint =
-    deliveryMode === "relay" && body.relayPoint
-      ? body.relayPoint
-      : null;
+  let relayPoint: ShippingRelayPoint | null = null;
 
-  if (deliveryMode === "relay" && (!relayPoint || !relayPoint.code)) {
-    return NextResponse.json(
-      { error: "Missing relay point selection" },
-      { status: 400 },
-    );
+  if (deliveryMode === "relay") {
+    const verifiedRelay = verifyRelayPointSelection(body.relayPoint);
+    if (!verifiedRelay.ok) {
+      return NextResponse.json(
+        { error: verifiedRelay.error || "Missing relay point selection" },
+        { status: 400 },
+      );
+    }
+    try {
+      relayPoint = await resolveBoxtalRelayPoint(verifiedRelay.relayPoint);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Relay point validation failed",
+        },
+        { status: error instanceof BoxtalApiError ? error.status : 502 },
+      );
+    }
   }
 
   const slugs = items.map((item) => item.slug);
-  const products = await getProductsBySlugs(slugs);
+  let products;
+  try {
+    products = await getProductsBySlugsStrict(slugs);
+  } catch (error) {
+    const message =
+      error instanceof ProductLookupError
+        ? "Catalogue temporairement indisponible. Reessayez dans quelques instants."
+        : "Impossible de verifier le catalogue.";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
   const productMap = new Map(products.map((product) => [product.slug, product]));
 
   let checkoutItems: CheckoutSessionItem[];
@@ -127,6 +176,9 @@ export async function POST(request: NextRequest) {
       product_data: {
         name: item.name,
         description: item.description,
+        metadata: {
+          slug: item.slug,
+        },
       },
     },
   }));
@@ -188,12 +240,14 @@ export async function POST(request: NextRequest) {
     }),
   );
 
+  let stripeSessionIdToExpire: string | undefined;
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
+      expires_at: getCheckoutSessionExpiresAt(),
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/cart?cancel=1`,
+      cancel_url: `${origin}/cart?cancel=1&session_id={CHECKOUT_SESSION_ID}`,
       customer_email: customer?.email || undefined,
       metadata,
       shipping_options: shippingOptions,
@@ -204,6 +258,7 @@ export async function POST(request: NextRequest) {
         enabled: true,
       },
     });
+    stripeSessionIdToExpire = session.id;
 
     await createCheckoutSessionRecord({
       stripeSessionId: session.id,
@@ -217,10 +272,39 @@ export async function POST(request: NextRequest) {
       items: checkoutItems,
     });
 
+    try {
+      await reserveCheckoutSessionStock({
+        stripeSessionId: session.id,
+        items: checkoutItems,
+      });
+    } catch (error) {
+      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+      if (error instanceof CheckoutStockReservationError) {
+        await markCheckoutSessionStockReservationFailed({
+          stripeSessionId: session.id,
+          stockAdjustments: error.adjustments,
+          reason: error.message,
+        }).catch(() => undefined);
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      throw error;
+    }
+
+    stripeSessionIdToExpire = undefined;
     return NextResponse.json({ url: session.url });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Stripe checkout error";
+    if (stripeSessionIdToExpire) {
+      await stripe.checkout.sessions
+        .expire(stripeSessionIdToExpire)
+        .catch(() => undefined);
+      await markCheckoutSessionStockReservationFailed({
+        stripeSessionId: stripeSessionIdToExpire,
+        stockAdjustments: [],
+        reason: message,
+      }).catch(() => undefined);
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -48,4 +48,17 @@ describe("email templates", () => {
     assert.match(email.html, /TRACK123/);
     assert.match(email.html, /https:\/\/tracking.example\/TRACK123/);
   });
+
+  it("does not render unsafe tracking links", () => {
+    const email = buildTrackingEmail({
+      ...baseOrder,
+      shippingTracking: {
+        trackingNumber: "TRACK123",
+        trackingUrl: "javascript:alert(1)",
+      },
+    });
+    assert.match(email.html, /TRACK123/);
+    assert.doesNotMatch(email.html, /javascript:alert/);
+    assert.doesNotMatch(email.html, /<a href=/);
+  });
 });

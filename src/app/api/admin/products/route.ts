@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
-import { createProduct, getProducts } from "@/lib/products";
+import {
+  createProduct,
+  DuplicateProductSlugError,
+  ProductLookupError,
+  getProducts,
+} from "@/lib/products";
+import { validateAdminProductInput } from "@/lib/product-validation";
+import type { Product } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
+
+const noStoreHeaders = { "Cache-Control": "no-store, max-age=0" };
 
 function isAuthorized(request: NextRequest) {
   const sessionValue = request.cookies.get(adminCookieName)?.value;
@@ -9,16 +20,29 @@ function isAuthorized(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: noStoreHeaders },
+    );
   }
   if (!process.env.MONGODB_URI) {
     return NextResponse.json(
       { error: "MONGODB_URI missing" },
-      { status: 400 },
+      { status: 400, headers: noStoreHeaders },
     );
   }
-  const products = await getProducts();
-  return NextResponse.json({ products });
+  try {
+    const products = await getProducts();
+    return NextResponse.json({ products }, { headers: noStoreHeaders });
+  } catch (error) {
+    if (error instanceof ProductLookupError) {
+      return NextResponse.json(
+        { error: "Product catalog unavailable" },
+        { status: 503, headers: noStoreHeaders },
+      );
+    }
+    throw error;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -33,46 +57,24 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const {
-    name,
-    slug,
-    category,
-    franchise,
-    language,
-    price,
-    description,
-    badge,
-    tags,
-    stock,
-    image,
-  } = body;
-
-  if (!name || !slug || !category || !price || !description) {
+  const validation = validateAdminProductInput(body);
+  if (!validation.ok) {
     return NextResponse.json(
-      { error: "Missing required fields" },
+      { error: validation.error },
       { status: 400 },
     );
   }
 
-  const payload = {
-    name,
-    slug,
-    category,
-    franchise,
-    language: language || undefined,
-    price: Number(price),
-    description,
-    badge,
-    image,
-    tags:
-      typeof tags === "string"
-        ? tags.split(",").map((tag: string) => tag.trim())
-        : Array.isArray(tags)
-          ? tags
-          : undefined,
-    stock: stock ? Number(stock) : undefined,
-  };
-
-  const created = await createProduct(payload);
-  return NextResponse.json({ product: created });
+  try {
+    const created = await createProduct(validation.product as Product);
+    return NextResponse.json({ product: created });
+  } catch (error) {
+    if (error instanceof DuplicateProductSlugError) {
+      return NextResponse.json(
+        { error: "Product slug already exists" },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 }

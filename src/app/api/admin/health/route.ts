@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
+import { getProductionSiteUrlProblem } from "@/lib/checkout-validation";
 import { getDb } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 type Check = {
   ok: boolean;
   label: string;
   detail?: string;
 };
+
+const noStoreHeaders = { "Cache-Control": "no-store, max-age=0" };
 
 function isAuthorized(request: NextRequest) {
   const sessionValue = request.cookies.get(adminCookieName)?.value;
@@ -38,9 +43,22 @@ function validUrl(name: string, label = name): Check {
   }
 }
 
+function siteUrlCheck(): Check {
+  const label = "Public site URL";
+  if (process.env.NODE_ENV === "production") {
+    const problem = getProductionSiteUrlProblem(process.env.NEXT_PUBLIC_SITE_URL);
+    return problem ? { label, ok: false, detail: problem } : { label, ok: true };
+  }
+
+  return validUrl("NEXT_PUBLIC_SITE_URL", label);
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: noStoreHeaders },
+    );
   }
 
   const checks: Record<string, Check> = {
@@ -58,7 +76,7 @@ export async function GET(request: NextRequest) {
       "CUSTOMER_SESSION_SECRET",
       "Customer session secret",
     ),
-    siteUrl: validUrl("NEXT_PUBLIC_SITE_URL", "Public site URL"),
+    siteUrl: siteUrlCheck(),
     blobToken:
       process.env.NODE_ENV === "production"
         ? requiredConfigured(
@@ -83,6 +101,27 @@ export async function GET(request: NextRequest) {
       "BOXTAL_SHIPPING_OFFER_CODE_RELAY",
       "Boxtal relay offer",
     ),
+    boxtalShipperName: configured("BOXTAL_SHIPPER_NAME", "Boxtal shipper name"),
+    boxtalShipperEmail: configured(
+      "BOXTAL_SHIPPER_EMAIL",
+      "Boxtal shipper email",
+    ),
+    boxtalShipperPhone: configured(
+      "BOXTAL_SHIPPER_PHONE",
+      "Boxtal shipper phone",
+    ),
+    boxtalShipperStreet: configured(
+      "BOXTAL_SHIPPER_STREET1",
+      "Boxtal shipper street",
+    ),
+    boxtalShipperZip: configured(
+      "BOXTAL_SHIPPER_ZIP_CODE",
+      "Boxtal shipper zip code",
+    ),
+    boxtalShipperCity: configured(
+      "BOXTAL_SHIPPER_CITY",
+      "Boxtal shipper city",
+    ),
   };
 
   let mongoPing: Check = { label: "MongoDB ping", ok: false };
@@ -103,10 +142,13 @@ export async function GET(request: NextRequest) {
   const allChecks = { ...checks, mongoPing };
   const ok = Object.values(allChecks).every((check) => check.ok);
 
-  return NextResponse.json({
-    ok,
-    environment: process.env.NODE_ENV,
-    checkedAt: new Date().toISOString(),
-    checks: allChecks,
-  });
+  return NextResponse.json(
+    {
+      ok,
+      environment: process.env.NODE_ENV,
+      checkedAt: new Date().toISOString(),
+      checks: allChecks,
+    },
+    { headers: noStoreHeaders },
+  );
 }

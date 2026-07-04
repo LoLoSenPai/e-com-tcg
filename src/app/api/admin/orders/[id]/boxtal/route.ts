@@ -6,6 +6,13 @@ import {
   BoxtalApiError,
 } from "@/lib/boxtal";
 import { getOrderById, updateOrderFields } from "@/lib/orders";
+import {
+  hasOrderTrackingDeliveryDetails,
+  hasTrackingDeliveryDetails,
+  normalizeTrackingDetails,
+  normalizeTrackingUrl,
+} from "@/lib/order-tracking";
+import { sendOrderEmail } from "@/lib/order-email";
 import type { Order } from "@/lib/types";
 
 type ShipmentPatchInput = {
@@ -28,7 +35,22 @@ export const runtime = "nodejs";
 
 function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
   const now = new Date().toISOString();
-  const hasTracking = Boolean(shipment.trackingNumber || shipment.trackingUrl);
+  const normalizedTracking = normalizeTrackingDetails({
+    carrier: shipment.carrier,
+    trackingNumber: shipment.trackingNumber,
+    trackingUrl: shipment.trackingUrl,
+  });
+  const safeLabelUrl = normalizeTrackingUrl(shipment.labelUrl);
+  const hasTracking = Boolean(
+    normalizedTracking?.trackingNumber || normalizedTracking?.trackingUrl,
+  );
+  const shipmentStatus = shipment.status?.toUpperCase();
+  const orderStatus =
+    shipmentStatus === "DELIVERED"
+      ? "delivered"
+      : hasTracking
+        ? "shipped"
+        : order.status;
 
   return {
     boxtalShipment: {
@@ -37,11 +59,11 @@ function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
       shippingOfferCode:
         shipment.shippingOfferCode || order.boxtalShipment?.shippingOfferCode,
       status: shipment.status || order.boxtalShipment?.status,
-      carrier: shipment.carrier || order.boxtalShipment?.carrier,
+      carrier: normalizedTracking?.carrier || order.boxtalShipment?.carrier,
       trackingNumber:
-        shipment.trackingNumber || order.boxtalShipment?.trackingNumber,
-      trackingUrl: shipment.trackingUrl || order.boxtalShipment?.trackingUrl,
-      labelUrl: shipment.labelUrl || order.boxtalShipment?.labelUrl,
+        normalizedTracking?.trackingNumber || order.boxtalShipment?.trackingNumber,
+      trackingUrl: normalizedTracking?.trackingUrl || order.boxtalShipment?.trackingUrl,
+      labelUrl: safeLabelUrl || order.boxtalShipment?.labelUrl,
       relayCode: shipment.relayCode || order.boxtalShipment?.relayCode,
       createdAt: order.boxtalShipment?.createdAt || now,
       updatedAt: now,
@@ -50,14 +72,19 @@ function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
     shippingTracking:
       hasTracking || order.shippingTracking
         ? {
-            carrier: shipment.carrier || order.shippingTracking?.carrier,
+            carrier: normalizedTracking?.carrier || order.shippingTracking?.carrier,
             trackingNumber:
-              shipment.trackingNumber || order.shippingTracking?.trackingNumber,
-            trackingUrl: shipment.trackingUrl || order.shippingTracking?.trackingUrl,
-          }
-        : order.shippingTracking,
-    status: hasTracking ? "shipped" : order.status,
-    shippedAt: hasTracking ? order.shippedAt || now : order.shippedAt,
+              normalizedTracking?.trackingNumber ||
+              order.shippingTracking?.trackingNumber,
+            trackingUrl:
+              normalizedTracking?.trackingUrl || order.shippingTracking?.trackingUrl,
+        }
+      : order.shippingTracking,
+    status: orderStatus,
+    shippedAt:
+      (orderStatus === "shipped" || orderStatus === "delivered") && hasTracking
+        ? order.shippedAt || now
+        : order.shippedAt,
   } satisfies Partial<Omit<Order, "_id">>;
 }
 
@@ -85,6 +112,40 @@ async function persistBoxtalError(
       updatedAt: now,
     },
   });
+}
+
+async function sendTrackingEmailIfNew(order: Order, shipment: ShipmentPatchInput) {
+  if (hasOrderTrackingDeliveryDetails(order)) {
+    return;
+  }
+
+  const tracking = normalizeTrackingDetails({
+    carrier: shipment.carrier,
+    trackingNumber: shipment.trackingNumber,
+    trackingUrl: shipment.trackingUrl,
+  });
+  if (!hasTrackingDeliveryDetails(tracking)) {
+    return;
+  }
+
+  await sendOrderEmail(
+    {
+      ...order,
+      shippingTracking: {
+        carrier: tracking?.carrier || order.shippingTracking?.carrier,
+        trackingNumber:
+          tracking?.trackingNumber || order.shippingTracking?.trackingNumber,
+        trackingUrl: tracking?.trackingUrl || order.shippingTracking?.trackingUrl,
+      },
+    },
+    "shipping_tracking",
+    {
+      idempotencyParts: [
+        order._id,
+        tracking?.trackingNumber || tracking?.trackingUrl,
+      ],
+    },
+  );
 }
 
 export async function POST(
@@ -124,20 +185,33 @@ export async function POST(
     const createdShipment = await createBoxtalShipment(order, shippingOfferCode);
     let shipment = createdShipment;
     let warning: string | undefined;
+    let persistedOrder = order;
+    let syncFailedAfterCreation = false;
 
     if (createdShipment.boxtalOrderId) {
+      persistedOrder =
+        (await persistShipmentUpdate(id, order, createdShipment)) || order;
       try {
-        shipment = await syncBoxtalShipment(order, createdShipment);
+        shipment = await syncBoxtalShipment(persistedOrder, createdShipment);
       } catch (error) {
         warning =
           "Expedition creee, mais la synchronisation Boxtal n'est pas encore disponible. Reessaie dans quelques instants ou attends le webhook.";
-        if (!(error instanceof BoxtalApiError)) {
-          throw error;
-        }
+        syncFailedAfterCreation = true;
+        await persistBoxtalError(
+          id,
+          persistedOrder,
+          error instanceof Error ? error.message : "Boxtal sync failed",
+          shippingOfferCode,
+        );
       }
     }
 
-    const updated = await persistShipmentUpdate(id, order, shipment);
+    const updated = syncFailedAfterCreation
+      ? await getOrderById(id)
+      : await persistShipmentUpdate(id, persistedOrder, shipment);
+    await sendTrackingEmailIfNew(order, shipment).catch(() => {
+      // Non-blocking: the email_events collection records the failure.
+    });
 
     return NextResponse.json({
       order: updated,
@@ -187,6 +261,9 @@ export async function PATCH(
   try {
     const shipment = await syncBoxtalShipment(order);
     const updated = await persistShipmentUpdate(id, order, shipment);
+    await sendTrackingEmailIfNew(order, shipment).catch(() => {
+      // Non-blocking: the email_events collection records the failure.
+    });
     return NextResponse.json({
       order: updated,
       shipment,

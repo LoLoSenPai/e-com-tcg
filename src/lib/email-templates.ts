@@ -1,4 +1,5 @@
 import { formatPrice } from "./format";
+import { normalizeTrackingUrl } from "./order-tracking";
 import type { Order } from "./types";
 
 function escapeHtml(value: string) {
@@ -40,8 +41,9 @@ export function buildTrackingEmail(order: Order) {
     order.shippingTracking?.trackingNumber ||
     order.boxtalShipment?.trackingNumber ||
     "Disponible";
-  const trackingUrl =
-    order.shippingTracking?.trackingUrl || order.boxtalShipment?.trackingUrl;
+  const trackingUrl = normalizeTrackingUrl(
+    order.shippingTracking?.trackingUrl || order.boxtalShipment?.trackingUrl,
+  );
   const trackingLink = trackingUrl
     ? `<p>Suivi: <a href="${escapeHtml(trackingUrl)}">${escapeHtml(
         trackingUrl,

@@ -64,6 +64,21 @@ export type StockAdjustment = {
   reason?: string;
 };
 
+export type EmailDeliveryStatus = "pending" | "sent" | "failed" | "skipped";
+
+export type OrderEmailDelivery = {
+  status: EmailDeliveryStatus;
+  to?: string;
+  providerId?: string;
+  error?: string;
+  updatedAt: string;
+};
+
+export type OrderEmailStatus = {
+  orderConfirmation?: OrderEmailDelivery;
+  shippingTracking?: OrderEmailDelivery;
+};
+
 export type Order = {
   _id?: string;
   stripeSessionId: string;
@@ -94,6 +109,7 @@ export type Order = {
   shippingRelay?: ShippingRelayPoint;
   shippedAt?: string;
   stockAdjustments?: StockAdjustment[];
+  emailStatus?: OrderEmailStatus;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -129,7 +145,13 @@ export type CheckoutSessionRecord = {
   _id?: string;
   stripeSessionId: string;
   stripeSessionUrl?: string | null;
-  status: "created" | "paid" | "order_created" | "expired";
+  status:
+    | "created"
+    | "fulfilling"
+    | "fulfillment_failed"
+    | "paid"
+    | "order_created"
+    | "expired";
   customerId?: string;
   customerEmail?: string;
   deliveryMode: DeliveryMode;
@@ -140,13 +162,19 @@ export type CheckoutSessionRecord = {
   orderId?: string;
   paidAt?: string;
   stockAdjustments?: StockAdjustment[];
+  stockReservedAt?: string;
+  stockReleasedAt?: string;
+  stockReservationFailedAt?: string;
+  stockReleaseReason?: string;
+  fulfillmentFailedAt?: string;
+  fulfillmentError?: string;
   items: CheckoutSessionItem[];
   createdAt: string;
   updatedAt: string;
 };
 
-export type EmailEventType = "order_confirmation" | "shipping_tracking";
-export type EmailEventStatus = "pending" | "sent" | "failed" | "skipped";
+export type EmailEventType = "order_confirmation" | "shipping_tracking" | "test_email";
+export type EmailEventStatus = EmailDeliveryStatus;
 
 export type EmailEvent = {
   _id?: string;
@@ -157,6 +185,7 @@ export type EmailEvent = {
   orderId?: string;
   stripeSessionId?: string;
   providerId?: string;
+  idempotencyKey?: string;
   error?: string;
   createdAt: string;
   updatedAt: string;

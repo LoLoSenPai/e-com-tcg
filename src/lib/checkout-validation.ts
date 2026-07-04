@@ -41,6 +41,39 @@ function cleanBaseUrl(value: string | undefined | null) {
   }
 }
 
+function isLocalHostname(hostname: string) {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local")
+  );
+}
+
+export function getProductionSiteUrlProblem(value: string | undefined | null) {
+  if (!value?.trim()) {
+    return "Missing NEXT_PUBLIC_SITE_URL";
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return "Invalid URL";
+  }
+
+  if (url.protocol !== "https:") {
+    return "Production URL must use https";
+  }
+  if (isLocalHostname(url.hostname)) {
+    return "Production URL must be public, not localhost";
+  }
+
+  return null;
+}
+
 export function getCheckoutBaseUrl({
   configuredSiteUrl,
   requestOrigin,
@@ -56,7 +89,7 @@ export function getCheckoutBaseUrl({
   const origin = cleanBaseUrl(requestOrigin) || cleanBaseUrl(requestUrl);
 
   if (isProduction) {
-    return configured;
+    return getProductionSiteUrlProblem(configuredSiteUrl) ? "" : configured;
   }
 
   return origin || configured || "http://localhost:3000";

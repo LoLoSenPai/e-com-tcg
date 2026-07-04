@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
-import { syncBoxtalShipment, BoxtalApiError } from "@/lib/boxtal";
+import {
+  syncBoxtalShipment,
+  BoxtalApiError,
+  hasBoxtalShipmentDetails,
+  normalizeBoxtalWebhookShipment,
+} from "@/lib/boxtal";
+import {
+  buildBoxtalWebhookEventId,
+  getBoxtalWebhookEnvelope,
+} from "@/lib/boxtal-webhook";
 import {
   getOrderByBoxtalOrderId,
   getOrderById,
   getOrderByStripeSessionId,
   updateOrderFields,
 } from "@/lib/orders";
-import { sendTrackedEmail } from "@/lib/email";
-import { buildTrackingEmail } from "@/lib/email-templates";
+import { sendOrderEmail } from "@/lib/order-email";
+import {
+  normalizeTrackingDetails,
+  normalizeTrackingUrl,
+} from "@/lib/order-tracking";
 import { beginWebhookEvent, updateWebhookEvent } from "@/lib/webhook-events";
 import type { Order } from "@/lib/types";
 
@@ -27,10 +39,6 @@ type ShipmentPatchInput = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readString(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function safeEqual(left: string, right: string) {
@@ -57,7 +65,22 @@ function isValidBoxtalSignature(payload: string, signature: string, secret: stri
 
 function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
   const now = new Date().toISOString();
-  const hasTracking = Boolean(shipment.trackingNumber || shipment.trackingUrl);
+  const normalizedTracking = normalizeTrackingDetails({
+    carrier: shipment.carrier,
+    trackingNumber: shipment.trackingNumber,
+    trackingUrl: shipment.trackingUrl,
+  });
+  const safeLabelUrl = normalizeTrackingUrl(shipment.labelUrl);
+  const hasTracking = Boolean(
+    normalizedTracking?.trackingNumber || normalizedTracking?.trackingUrl,
+  );
+  const shipmentStatus = shipment.status?.toUpperCase();
+  const orderStatus =
+    shipmentStatus === "DELIVERED"
+      ? "delivered"
+      : hasTracking
+        ? "shipped"
+        : order.status;
 
   return {
     boxtalShipment: {
@@ -66,11 +89,11 @@ function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
       shippingOfferCode:
         shipment.shippingOfferCode || order.boxtalShipment?.shippingOfferCode,
       status: shipment.status || order.boxtalShipment?.status,
-      carrier: shipment.carrier || order.boxtalShipment?.carrier,
+      carrier: normalizedTracking?.carrier || order.boxtalShipment?.carrier,
       trackingNumber:
-        shipment.trackingNumber || order.boxtalShipment?.trackingNumber,
-      trackingUrl: shipment.trackingUrl || order.boxtalShipment?.trackingUrl,
-      labelUrl: shipment.labelUrl || order.boxtalShipment?.labelUrl,
+        normalizedTracking?.trackingNumber || order.boxtalShipment?.trackingNumber,
+      trackingUrl: normalizedTracking?.trackingUrl || order.boxtalShipment?.trackingUrl,
+      labelUrl: safeLabelUrl || order.boxtalShipment?.labelUrl,
       relayCode: shipment.relayCode || order.boxtalShipment?.relayCode,
       createdAt: order.boxtalShipment?.createdAt || now,
       updatedAt: now,
@@ -79,14 +102,19 @@ function buildOrderPatch(order: Order, shipment: ShipmentPatchInput) {
     shippingTracking:
       hasTracking || order.shippingTracking
         ? {
-            carrier: shipment.carrier || order.shippingTracking?.carrier,
+            carrier: normalizedTracking?.carrier || order.shippingTracking?.carrier,
             trackingNumber:
-              shipment.trackingNumber || order.shippingTracking?.trackingNumber,
-            trackingUrl: shipment.trackingUrl || order.shippingTracking?.trackingUrl,
-          }
-        : order.shippingTracking,
-    status: hasTracking ? "shipped" : order.status,
-    shippedAt: hasTracking ? order.shippedAt || now : order.shippedAt,
+              normalizedTracking?.trackingNumber ||
+              order.shippingTracking?.trackingNumber,
+            trackingUrl:
+              normalizedTracking?.trackingUrl || order.shippingTracking?.trackingUrl,
+        }
+      : order.shippingTracking,
+    status: orderStatus,
+    shippedAt:
+      (orderStatus === "shipped" || orderStatus === "delivered") && hasTracking
+        ? order.shippedAt || now
+        : order.shippedAt,
   } satisfies Partial<Omit<Order, "_id">>;
 }
 
@@ -117,30 +145,39 @@ async function maybeSendTrackingEmail(order: Order, shipment: ShipmentPatchInput
   const hadTrackingBefore = Boolean(
     order.shippingTracking?.trackingNumber || order.shippingTracking?.trackingUrl,
   );
-  const hasTrackingNow = Boolean(shipment.trackingNumber || shipment.trackingUrl);
+  const normalizedTracking = normalizeTrackingDetails({
+    carrier: shipment.carrier,
+    trackingNumber: shipment.trackingNumber,
+    trackingUrl: shipment.trackingUrl,
+  });
+  const hasTrackingNow = Boolean(
+    normalizedTracking?.trackingNumber || normalizedTracking?.trackingUrl,
+  );
 
-  if (!order.customerEmail || hadTrackingBefore || !hasTrackingNow) {
+  if (hadTrackingBefore || !hasTrackingNow) {
     return;
   }
 
-  const email = buildTrackingEmail({
-    ...order,
-    shippingTracking: {
-      carrier: shipment.carrier || order.shippingTracking?.carrier,
-      trackingNumber:
-        shipment.trackingNumber || order.shippingTracking?.trackingNumber,
-      trackingUrl: shipment.trackingUrl || order.shippingTracking?.trackingUrl,
+  await sendOrderEmail(
+    {
+      ...order,
+      shippingTracking: {
+        carrier: normalizedTracking?.carrier || order.shippingTracking?.carrier,
+        trackingNumber:
+          normalizedTracking?.trackingNumber ||
+          order.shippingTracking?.trackingNumber,
+        trackingUrl:
+          normalizedTracking?.trackingUrl || order.shippingTracking?.trackingUrl,
+      },
     },
-  });
-
-  await sendTrackedEmail({
-    type: "shipping_tracking",
-    orderId: order._id,
-    stripeSessionId: order.stripeSessionId,
-    to: order.customerEmail,
-    subject: email.subject,
-    html: email.html,
-  });
+    "shipping_tracking",
+    {
+      idempotencyParts: [
+        order._id,
+        normalizedTracking?.trackingNumber || normalizedTracking?.trackingUrl,
+      ],
+    },
+  );
 }
 
 export async function POST(request: Request) {
@@ -173,12 +210,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid event format" }, { status: 400 });
   }
 
-  const eventType = readString(payload.type);
-  const shipmentExternalId = readString(payload.shipmentExternalId);
-  const boxtalOrderId = readString(payload.shippingOrderId);
-  const eventId =
-    readString(payload.id) ||
-    `${eventType || "boxtal-event"}:${shipmentExternalId || boxtalOrderId || rawPayload.slice(0, 64)}`;
+  const { eventType, shipmentExternalId, boxtalOrderId } =
+    getBoxtalWebhookEnvelope(payload);
+  const eventId = buildBoxtalWebhookEventId({
+    payloadId: payload.id,
+    eventType,
+    shipmentExternalId,
+    boxtalOrderId,
+    rawPayload,
+  });
 
   const begin = await beginWebhookEvent({
     provider: "boxtal",
@@ -208,10 +248,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const shipment = await syncBoxtalShipment(order, {
-      boxtalOrderId,
+    const seed = {
+      boxtalOrderId: boxtalOrderId || order.boxtalShipment?.boxtalOrderId,
+      shippingOfferCode: order.boxtalShipment?.shippingOfferCode,
       relayCode: order.shippingRelay?.code,
-    });
+    };
+    const webhookShipment = normalizeBoxtalWebhookShipment(payload, seed);
+    const shipment = hasBoxtalShipmentDetails(webhookShipment)
+      ? webhookShipment
+      : await syncBoxtalShipment(order, seed);
 
     const updated = await updateOrderFields(order._id, buildOrderPatch(order, shipment));
     try {

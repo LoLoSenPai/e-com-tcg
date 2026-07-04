@@ -6,6 +6,7 @@ import {
   getLanguageFlagEmoji,
 } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { normalizeProductImageSource } from "@/lib/product-media";
 
 type ProductCardProps = {
   product: Product;
@@ -15,6 +16,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const outOfStock = (product.stock ?? 0) <= 0;
   const franchiseLabel = product.franchise || product.tags?.[0];
   const languageFlagEmoji = getLanguageFlagEmoji(product.language);
+  const productImage = normalizeProductImageSource(product.image);
 
   return (
     <div className="card-foil manga-panel manga-card manga-dot group rounded-[24px] bg-white p-4 md:rounded-[28px] md:p-5">
@@ -54,16 +56,16 @@ export function ProductCard({ product }: ProductCardProps) {
         <div
           className="manga-dot mt-4 grid aspect-[3/4] place-items-center rounded-2xl border border-black/10 bg-[#ffffff] text-center text-sm font-semibold text-slate-600 md:mt-6"
           style={
-            product.image
+            productImage
               ? {
-                  backgroundImage: `url(${product.image})`,
+                  backgroundImage: `url(${productImage})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
               : undefined
           }
         >
-          {!product.image ? "Booster art preview" : ""}
+          {!productImage ? "Booster art preview" : ""}
         </div>
         <h3
           className="mt-4 h-[3.95rem] overflow-hidden text-[1.05rem] font-semibold leading-[1.25] text-slate-900 md:h-[4.2rem] md:text-lg"

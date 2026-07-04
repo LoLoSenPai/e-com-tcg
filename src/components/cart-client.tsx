@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Product, ShippingRelayPoint } from "@/lib/types";
 import { useCart } from "@/components/cart-context";
@@ -76,10 +76,12 @@ export function CartClient({ products }: CartClientProps) {
   const [deliveryMode, setDeliveryMode] = useState<"home" | "relay">("home");
   const [relayPoint, setRelayPoint] = useState<ShippingRelayPoint | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
+  const [cancelReleaseStatus, setCancelReleaseStatus] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const cancelReleaseAttemptedRef = useRef(false);
   const searchParams = useSearchParams();
-  const checkoutSuccess = searchParams.get("success");
   const checkoutCancel = searchParams.get("cancel");
+  const cancelledSessionId = searchParams.get("session_id");
 
   const lines = useMemo(() => {
     const map = new Map(products.map((product) => [product.slug, product]));
@@ -106,6 +108,48 @@ export function CartClient({ products }: CartClientProps) {
   );
   const estimatedTotal = subtotal + cheapestShipping.amount;
   const missingRelayPoint = deliveryMode === "relay" && !relayPoint;
+
+  useEffect(() => {
+    if (!checkoutCancel || !cancelledSessionId || cancelReleaseAttemptedRef.current) {
+      return;
+    }
+
+    cancelReleaseAttemptedRef.current = true;
+    let cancelled = false;
+
+    async function releaseCancelledCheckout() {
+      try {
+        const response = await fetch("/api/checkout/cancel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: cancelledSessionId }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Annulation checkout impossible.");
+        }
+        if (!cancelled) {
+          setCancelReleaseStatus(
+            payload.released
+              ? "Reservation de stock liberee."
+              : "Reservation de stock deja traitee.",
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setCancelReleaseStatus(
+            "La reservation de stock sera liberee automatiquement a expiration.",
+          );
+        }
+      }
+    }
+
+    releaseCancelledCheckout();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutCancel, cancelledSessionId]);
 
   async function handleCheckout() {
     setCheckoutError("");
@@ -145,14 +189,12 @@ export function CartClient({ products }: CartClientProps) {
   if (lines.length === 0) {
     return (
       <div className="space-y-4">
-        {checkoutSuccess ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-            Paiement confirme. Merci pour ta commande !
-          </div>
-        ) : null}
         {checkoutCancel ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             Paiement annule. Ton panier est toujours la.
+            {cancelReleaseStatus ? (
+              <span className="mt-1 block text-xs">{cancelReleaseStatus}</span>
+            ) : null}
           </div>
         ) : null}
         <div className="manga-panel rounded-2xl bg-white p-10 text-center">
@@ -166,14 +208,12 @@ export function CartClient({ products }: CartClientProps) {
 
   return (
     <div className="space-y-6">
-      {checkoutSuccess ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          Paiement confirme. Merci pour ta commande !
-        </div>
-      ) : null}
       {checkoutCancel ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           Paiement annule. Ton panier est toujours la.
+          {cancelReleaseStatus ? (
+            <span className="mt-1 block text-xs">{cancelReleaseStatus}</span>
+          ) : null}
         </div>
       ) : null}
       {checkoutError ? (

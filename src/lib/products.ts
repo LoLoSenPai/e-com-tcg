@@ -1,10 +1,54 @@
+import { MongoServerError, ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 import { sampleProducts } from "@/lib/sample-data";
 import type { CheckoutSessionItem, Product, StockAdjustment } from "@/lib/types";
 
 const collectionName = "products";
 
-function normalizeProduct(doc: Product): Product {
+type ProductDocument = Omit<Product, "_id"> & { _id?: ObjectId | string };
+
+let indexesPromise: Promise<void> | null = null;
+
+export class DuplicateProductSlugError extends Error {
+  constructor(slug: string) {
+    super(`Product slug already exists: ${slug}`);
+    this.name = "DuplicateProductSlugError";
+  }
+}
+
+export class ProductLookupError extends Error {
+  constructor(message = "Product catalog unavailable.") {
+    super(message);
+    this.name = "ProductLookupError";
+  }
+}
+
+function isDuplicateKeyError(error: unknown) {
+  return error instanceof MongoServerError && error.code === 11000;
+}
+
+async function ensureIndexes() {
+  if (!indexesPromise) {
+    indexesPromise = getDb().then(async (db) => {
+      try {
+        await db
+          .collection<ProductDocument>(collectionName)
+          .createIndex({ slug: 1 }, { unique: true });
+      } catch (error) {
+        if (isDuplicateKeyError(error)) {
+          console.warn(
+            "Products slug unique index could not be created because duplicates already exist.",
+          );
+          return;
+        }
+        throw error;
+      }
+    });
+  }
+  return indexesPromise;
+}
+
+function normalizeProduct(doc: ProductDocument): Product {
   return {
     ...doc,
     _id: doc._id ? String(doc._id) : undefined,
@@ -15,7 +59,15 @@ function normalizeProduct(doc: Product): Product {
 
 const sampleBySlug = new Map(sampleProducts.map((item) => [item.slug, item]));
 
+function canUseSampleProducts() {
+  return process.env.NODE_ENV !== "production";
+}
+
 function applySampleFallback(product: Product): Product {
+  if (!canUseSampleProducts()) {
+    return product;
+  }
+
   const sample = sampleBySlug.get(product.slug);
   if (!sample) return product;
   return {
@@ -29,72 +81,147 @@ function applySampleFallback(product: Product): Product {
 
 export async function getProducts(): Promise<Product[]> {
   if (!process.env.MONGODB_URI) {
-    return sampleProducts;
+    if (canUseSampleProducts()) {
+      return sampleProducts;
+    }
+    throw new ProductLookupError("Missing MONGODB_URI.");
   }
   try {
     const db = await getDb();
     const docs = await db
-      .collection<Product>(collectionName)
+      .collection<ProductDocument>(collectionName)
       .find({})
       .toArray();
     if (docs.length === 0) {
-      return sampleProducts;
+      return canUseSampleProducts() ? sampleProducts : [];
     }
     return docs.map(normalizeProduct).map(applySampleFallback);
-  } catch {
-    return sampleProducts;
+  } catch (error) {
+    if (canUseSampleProducts()) {
+      return sampleProducts;
+    }
+    throw new ProductLookupError(
+      error instanceof Error ? error.message : undefined,
+    );
   }
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   if (!process.env.MONGODB_URI) {
-    return sampleProducts.find((item) => item.slug === slug) ?? null;
+    if (canUseSampleProducts()) {
+      return sampleProducts.find((item) => item.slug === slug) ?? null;
+    }
+    throw new ProductLookupError("Missing MONGODB_URI.");
   }
   try {
     const db = await getDb();
     const doc = await db
-      .collection<Product>(collectionName)
+      .collection<ProductDocument>(collectionName)
       .findOne({ slug });
     if (doc) {
       return applySampleFallback(normalizeProduct(doc));
     }
-    return sampleProducts.find((item) => item.slug === slug) ?? null;
-  } catch {
-    return sampleProducts.find((item) => item.slug === slug) ?? null;
+    return canUseSampleProducts()
+      ? sampleProducts.find((item) => item.slug === slug) ?? null
+      : null;
+  } catch (error) {
+    if (canUseSampleProducts()) {
+      return sampleProducts.find((item) => item.slug === slug) ?? null;
+    }
+    throw new ProductLookupError(
+      error instanceof Error ? error.message : undefined,
+    );
   }
 }
 
 export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
   if (!process.env.MONGODB_URI) {
-    return sampleProducts.filter((item) => slugs.includes(item.slug));
+    if (canUseSampleProducts()) {
+      return sampleProducts.filter((item) => slugs.includes(item.slug));
+    }
+    throw new ProductLookupError("Missing MONGODB_URI.");
   }
   try {
     const db = await getDb();
     const docs = await db
-      .collection<Product>(collectionName)
+      .collection<ProductDocument>(collectionName)
       .find({ slug: { $in: slugs } })
       .toArray();
     if (docs.length === 0) {
-      return sampleProducts.filter((item) => slugs.includes(item.slug));
+      return canUseSampleProducts()
+        ? sampleProducts.filter((item) => slugs.includes(item.slug))
+        : [];
     }
     return docs.map(normalizeProduct).map(applySampleFallback);
-  } catch {
-    return sampleProducts.filter((item) => slugs.includes(item.slug));
+  } catch (error) {
+    if (canUseSampleProducts()) {
+      return sampleProducts.filter((item) => slugs.includes(item.slug));
+    }
+    throw new ProductLookupError(
+      error instanceof Error ? error.message : undefined,
+    );
+  }
+}
+
+export async function getProductsBySlugsStrict(
+  slugs: string[],
+): Promise<Product[]> {
+  if (!process.env.MONGODB_URI) {
+    throw new ProductLookupError("Missing MONGODB_URI.");
+  }
+
+  try {
+    const db = await getDb();
+    const docs = await db
+      .collection<ProductDocument>(collectionName)
+      .find({ slug: { $in: slugs } })
+      .toArray();
+    return docs.map(normalizeProduct);
+  } catch (error) {
+    if (error instanceof ProductLookupError) {
+      throw error;
+    }
+    throw new ProductLookupError(
+      error instanceof Error ? error.message : undefined,
+    );
   }
 }
 
 export async function createProduct(product: Product) {
+  await ensureIndexes();
   const db = await getDb();
+  const collection = db.collection<ProductDocument>(collectionName);
   const payload = normalizeProduct(product);
-  await db.collection<Product>(collectionName).insertOne(payload);
-  return payload;
+  const duplicate = await collection.findOne({ slug: payload.slug });
+  if (duplicate) {
+    throw new DuplicateProductSlugError(payload.slug);
+  }
+
+  const insertPayload: ProductDocument = { ...payload };
+  delete insertPayload._id;
+  try {
+    const result = await collection.insertOne(insertPayload);
+    return normalizeProduct({ ...insertPayload, _id: result.insertedId });
+  } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      throw new DuplicateProductSlugError(payload.slug);
+    }
+    throw error;
+  }
 }
 
 export async function updateProductBySlug(
   slug: string,
   updates: Partial<Product>,
 ) {
+  await ensureIndexes();
   const db = await getDb();
+  const collection = db.collection<ProductDocument>(collectionName);
+  const current = await collection.findOne({ slug });
+  if (!current) {
+    return null;
+  }
+
   const payload: Partial<Product> = { ...updates };
   if (typeof payload.price === "number") {
     payload.price = Number(payload.price);
@@ -102,17 +229,59 @@ export async function updateProductBySlug(
   if (typeof payload.stock === "number") {
     payload.stock = Number(payload.stock);
   }
-  await db
-    .collection<Product>(collectionName)
-    .updateOne({ slug }, { $set: payload });
-  const doc = await db.collection<Product>(collectionName).findOne({ slug });
+  delete payload._id;
+
+  if (payload.slug && payload.slug !== slug) {
+    const duplicate = await collection.findOne({ slug: payload.slug });
+    if (duplicate && String(duplicate._id) !== String(current._id)) {
+      throw new DuplicateProductSlugError(payload.slug);
+    }
+  }
+
+  try {
+    const setPayload: Record<string, unknown> = {};
+    const unsetPayload: Record<string, ""> = {};
+    for (const [field, value] of Object.entries(payload)) {
+      if (value === undefined) {
+        unsetPayload[field] = "";
+      } else {
+        setPayload[field] = value;
+      }
+    }
+
+    const update: {
+      $set?: Record<string, unknown>;
+      $unset?: Record<string, "">;
+    } = {};
+    if (Object.keys(setPayload).length > 0) {
+      update.$set = setPayload;
+    }
+    if (Object.keys(unsetPayload).length > 0) {
+      update.$unset = unsetPayload;
+    }
+    if (Object.keys(update).length === 0) {
+      return normalizeProduct(current);
+    }
+
+    await collection.updateOne({ _id: current._id }, update);
+  } catch (error) {
+    if (isDuplicateKeyError(error)) {
+      throw new DuplicateProductSlugError(payload.slug || slug);
+    }
+    throw error;
+  }
+  const doc = await collection.findOne({ _id: current._id });
   return doc ? normalizeProduct(doc) : null;
 }
 
 export async function deleteProductBySlug(slug: string) {
   const db = await getDb();
-  const doc = await db.collection<Product>(collectionName).findOne({ slug });
-  await db.collection<Product>(collectionName).deleteOne({ slug });
+  const collection = db.collection<ProductDocument>(collectionName);
+  const doc = await collection.findOne({ slug });
+  if (!doc) {
+    return null;
+  }
+  await collection.deleteOne({ _id: doc._id });
   return doc ? normalizeProduct(doc) : null;
 }
 
@@ -123,7 +292,7 @@ export async function decrementProductStocks(
   const adjustments: StockAdjustment[] = [];
 
   for (const item of items) {
-    const result = await db.collection<Product>(collectionName).updateOne(
+    const result = await db.collection<ProductDocument>(collectionName).updateOne(
       { slug: item.slug, stock: { $gte: item.quantity } },
       { $inc: { stock: -item.quantity } },
     );
@@ -143,12 +312,14 @@ export async function decrementProductStocks(
 }
 
 export async function seedProducts() {
+  await ensureIndexes();
   const db = await getDb();
-  const existing = await db.collection<Product>(collectionName).countDocuments();
+  const collection = db.collection<ProductDocument>(collectionName);
+  const existing = await collection.countDocuments();
   if (existing > 0) {
     return { inserted: 0 };
   }
   const payload = sampleProducts.map(normalizeProduct);
-  const result = await db.collection<Product>(collectionName).insertMany(payload);
+  const result = await collection.insertMany(payload);
   return { inserted: result.insertedCount };
 }

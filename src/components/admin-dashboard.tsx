@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Admin previews must support local and Blob URLs entered from the CMS. */
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Product } from "@/lib/types";
+import type { EmailEvent, Product } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import {
   categories as defaultCategories,
@@ -28,6 +28,18 @@ type HealthPayload = {
   ok: boolean;
   checkedAt: string;
   checks: Record<string, { ok: boolean; label: string; detail?: string }>;
+};
+
+type EmailEventsPayload = {
+  events?: EmailEvent[];
+  error?: string;
+};
+
+type EmailRetryPayload = {
+  checkedOrders?: number;
+  sent?: number;
+  failed?: number;
+  error?: string;
 };
 
 const emptyForm: FormState = {
@@ -59,6 +71,12 @@ export function AdminDashboard() {
   const [pendingDeleteSlug, setPendingDeleteSlug] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
+  const [emailEvents, setEmailEvents] = useState<EmailEvent[]>([]);
+  const [emailEventsLoading, setEmailEventsLoading] = useState(false);
+  const [emailRetryLoading, setEmailRetryLoading] = useState(false);
+  const [emailEventsStatus, setEmailEventsStatus] = useState("");
   const allLanguageOptions = useMemo(
     () =>
       Array.from(
@@ -103,6 +121,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     loadProducts();
+    loadEmailEvents();
   }, []);
 
   const filtered = useMemo(() => {
@@ -177,7 +196,6 @@ export function AdminDashboard() {
     const payload = {
       ...form,
       category: resolvedCategory,
-      language: form.language || undefined,
       price: Number(form.price),
       stock: form.stock ? Number(form.stock) : undefined,
     };
@@ -320,6 +338,99 @@ export function AdminDashboard() {
     }
   }
 
+  async function loadEmailEvents() {
+    setEmailEventsLoading(true);
+    setEmailEventsStatus("");
+    try {
+      const response = await fetch("/api/admin/email/events?limit=20");
+      const payload: EmailEventsPayload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Email logs failed");
+      }
+      setEmailEvents(payload.events || []);
+    } catch (error) {
+      setEmailEventsStatus(
+        error instanceof Error
+          ? error.message
+          : "Impossible de charger les logs email.",
+      );
+    } finally {
+      setEmailEventsLoading(false);
+    }
+  }
+
+  async function sendTestEmail() {
+    setTestEmailLoading(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Email test failed");
+      }
+      setStatus(`Email test envoye a ${testEmail.trim().toLowerCase()}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Email test impossible.");
+    } finally {
+      await loadEmailEvents();
+      setTestEmailLoading(false);
+    }
+  }
+
+  async function retryFailedEmails() {
+    setEmailRetryLoading(true);
+    setEmailEventsStatus("");
+    try {
+      const response = await fetch("/api/admin/email/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 10 }),
+      });
+      const payload: EmailRetryPayload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Email retry failed");
+      }
+      setEmailEventsStatus(
+        `Retry termine: ${payload.sent || 0} envoye(s), ${
+          payload.failed || 0
+        } echec(s), ${payload.checkedOrders || 0} commande(s) verifiee(s).`,
+      );
+      await loadEmailEvents();
+    } catch (error) {
+      setEmailEventsStatus(
+        error instanceof Error
+          ? error.message
+          : "Impossible de relancer les emails.",
+      );
+    } finally {
+      setEmailRetryLoading(false);
+    }
+  }
+
+  function getEmailStatusClass(status: EmailEvent["status"]) {
+    if (status === "sent") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    if (status === "failed") return "border-rose-200 bg-rose-50 text-rose-800";
+    if (status === "pending") return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+
+  function getEmailStatusLabel(status: EmailEvent["status"]) {
+    if (status === "sent") return "Envoye";
+    if (status === "failed") return "Echec";
+    if (status === "pending") return "En cours";
+    return "Ignore";
+  }
+
+  function getEmailTypeLabel(type: EmailEvent["type"]) {
+    if (type === "order_confirmation") return "Confirmation";
+    if (type === "shipping_tracking") return "Suivi";
+    return "Test";
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -346,6 +457,23 @@ export function AdminDashboard() {
           >
             {healthLoading ? "Check..." : "Health"}
           </button>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={testEmail}
+              onChange={(event) => setTestEmail(event.target.value)}
+              placeholder="Email test"
+              type="email"
+              className="w-48 rounded-full border-2 border-black bg-white px-4 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={sendTestEmail}
+              disabled={testEmailLoading || !testEmail.trim()}
+              className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-semibold shadow-[4px_4px_0_#111827] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {testEmailLoading ? "Envoi..." : "Tester email"}
+            </button>
+          </div>
           {showDevTools ? (
             <button
               type="button"
@@ -403,6 +531,102 @@ export function AdminDashboard() {
           </div>
         </div>
       ) : null}
+
+      <div className="manga-panel rounded-[24px] bg-white p-4 text-sm text-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">Journal emails</p>
+            <p className="text-xs text-slate-500">
+              {emailEvents.length} dernier{emailEvents.length > 1 ? "s" : ""} evenement
+              {emailEvents.length > 1 ? "s" : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={loadEmailEvents}
+            disabled={emailEventsLoading}
+            className="rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold shadow-[3px_3px_0_#111827] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {emailEventsLoading ? "Chargement..." : "Rafraichir"}
+          </button>
+          <button
+            type="button"
+            onClick={retryFailedEmails}
+            disabled={emailRetryLoading}
+            className="rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold shadow-[3px_3px_0_#111827] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {emailRetryLoading ? "Relance..." : "Relancer echecs"}
+          </button>
+        </div>
+
+        {emailEventsStatus ? (
+          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            {emailEventsStatus}
+          </div>
+        ) : null}
+
+        <div className="mt-3 overflow-x-auto">
+          {emailEvents.length ? (
+            <table className="min-w-full text-left text-xs">
+              <thead className="text-slate-500">
+                <tr className="border-b border-slate-200">
+                  <th className="py-2 pr-3 font-semibold">Date</th>
+                  <th className="py-2 pr-3 font-semibold">Statut</th>
+                  <th className="py-2 pr-3 font-semibold">Type</th>
+                  <th className="py-2 pr-3 font-semibold">Destinataire</th>
+                  <th className="py-2 pr-3 font-semibold">Sujet</th>
+                  <th className="py-2 pr-3 font-semibold">Commande</th>
+                  <th className="py-2 pr-3 font-semibold">Erreur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emailEvents.map((event) => (
+                  <tr key={event._id || `${event.createdAt}-${event.subject}`} className="border-b border-slate-100">
+                    <td className="whitespace-nowrap py-2 pr-3 text-slate-600">
+                      {new Date(event.createdAt).toLocaleString("fr-FR")}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-1 font-semibold ${getEmailStatusClass(event.status)}`}
+                      >
+                        {getEmailStatusLabel(event.status)}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-3 text-slate-700">
+                      {getEmailTypeLabel(event.type)}
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-3 text-slate-700">
+                      {event.to || "-"}
+                    </td>
+                    <td className="max-w-[220px] truncate py-2 pr-3 text-slate-700" title={event.subject}>
+                      {event.subject}
+                    </td>
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      {event.orderId ? (
+                        <Link
+                          href={`/admin/orders/${event.orderId}`}
+                          className="font-semibold text-slate-900 underline decoration-slate-300 underline-offset-2"
+                        >
+                          Ouvrir
+                        </Link>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+                    <td className="max-w-[260px] truncate py-2 pr-3 text-rose-700" title={event.error || ""}>
+                      {event.error || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+              Aucun evenement email pour le moment.
+            </p>
+          )}
+        </div>
+      </div>
 
       {status ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

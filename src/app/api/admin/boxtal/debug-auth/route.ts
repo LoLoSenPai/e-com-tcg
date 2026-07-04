@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminCookieName, isAdminSession } from "@/lib/admin-auth";
+import { isAdminDebugRouteEnabled } from "@/lib/admin-route-flags";
 import { debugBoxtalAuthProbe } from "@/lib/boxtal";
 
 export const runtime = "nodejs";
@@ -12,6 +13,9 @@ function isAuthorized(request: NextRequest) {
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isAdminDebugRouteEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   try {

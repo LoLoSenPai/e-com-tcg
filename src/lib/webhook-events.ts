@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { ObjectId, type Filter, type UpdateFilter } from "mongodb";
 import { getDb } from "@/lib/db";
 import type { WebhookEvent, WebhookEventStatus } from "@/lib/types";
 
@@ -67,6 +67,42 @@ function webhookDocumentId(provider: WebhookEvent["provider"], eventId: string) 
   return `${provider}:${eventId}`;
 }
 
+function webhookEventFilter(
+  provider: WebhookEvent["provider"],
+  eventId: string,
+): Filter<DbWebhookEvent> {
+  return {
+    $or: [
+      { _id: webhookDocumentId(provider, eventId) },
+      { provider, eventId },
+    ],
+  };
+}
+
+export function buildWebhookEventStatusUpdate(
+  status: WebhookEventStatus,
+  error?: string,
+  updatedAt = new Date().toISOString(),
+) {
+  if (error) {
+    return {
+      $set: {
+        status,
+        error,
+        updatedAt,
+      },
+    };
+  }
+
+  return {
+    $set: {
+      status,
+      updatedAt,
+    },
+    $unset: { error: "" },
+  };
+}
+
 export async function beginWebhookEvent(
   input: Pick<WebhookEvent, "provider" | "eventId" | "eventType" | "objectId">,
 ) {
@@ -75,12 +111,9 @@ export async function beginWebhookEvent(
   const collection = db.collection<DbWebhookEvent>(collectionName);
   const now = new Date().toISOString();
 
-  const existingDoc = await collection.findOne({
-    $or: [
-      { _id: webhookDocumentId(input.provider, input.eventId) },
-      { provider: input.provider, eventId: input.eventId },
-    ],
-  });
+  const existingDoc = await collection.findOne(
+    webhookEventFilter(input.provider, input.eventId),
+  );
   const existing = serializeWebhookEvent(existingDoc);
   if (existing && existingDoc) {
     if (existing.status === "processed" || existing.status === "ignored") {
@@ -158,12 +191,9 @@ export async function beginWebhookEvent(
     }
   }
 
-  const racedDoc = await collection.findOne({
-    $or: [
-      { _id: webhookDocumentId(input.provider, input.eventId) },
-      { provider: input.provider, eventId: input.eventId },
-    ],
-  });
+  const racedDoc = await collection.findOne(
+    webhookEventFilter(input.provider, input.eventId),
+  );
   const raced = serializeWebhookEvent(racedDoc);
 
   if (!raced || !racedDoc) {
@@ -229,18 +259,14 @@ export async function updateWebhookEvent(
   error?: string,
 ) {
   const db = await getDb();
-  await db.collection<DbWebhookEvent>(collectionName).updateOne(
-    { provider, eventId },
-    {
-      $set: {
-        status,
-        error,
-        updatedAt: new Date().toISOString(),
-      },
-    },
-  );
+  const update = buildWebhookEventStatusUpdate(
+    status,
+    error,
+  ) as UpdateFilter<DbWebhookEvent>;
+  const filter = webhookEventFilter(provider, eventId);
+  await db.collection<DbWebhookEvent>(collectionName).updateOne(filter, update);
   const doc = await db
     .collection<DbWebhookEvent>(collectionName)
-    .findOne({ provider, eventId });
+    .findOne(filter);
   return serializeWebhookEvent(doc);
 }
