@@ -26,11 +26,11 @@ function readStorage(): CartItem[] {
   if (typeof window === "undefined") {
     return [];
   }
-  const raw = window.localStorage.getItem(storageKey);
-  if (!raw) {
-    return [];
-  }
   try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return [];
+    }
     const parsed = JSON.parse(raw) as CartItem[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -42,15 +42,36 @@ function writeStorage(items: CartItem[]) {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(storageKey, JSON.stringify(items));
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(items));
+  } catch {}
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => readStorage());
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+      setItems(readStorage());
+      setIsHydrated(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
     writeStorage(items);
-  }, [items]);
+  }, [items, isHydrated]);
 
   const api = useMemo<CartContextValue>(() => {
     return {

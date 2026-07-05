@@ -170,7 +170,16 @@ export function SiteHeader() {
           }`}
         >
           <Link href="/" className="group flex items-center gap-2.5 md:gap-3">
-            <Image src="/logo-tr.png" alt="Returners Logo" width={120} height={120} />
+            <Image
+              src="/logo-tr.png"
+              alt="Returners Logo"
+              width={120}
+              height={120}
+              className={`transition-all duration-300 ${
+                isScrolled ? "h-12 w-12 md:h-14 md:w-14" : "h-14 w-14 md:h-16 md:w-16"
+              }`}
+              priority
+            />
             {/* <div className="leading-tight">
               <p
                 className={`font-display transition-all duration-300 ${
@@ -277,7 +286,13 @@ export function SiteHeader() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Image src="/logo-tr.png" alt="Returners Logo" width={32} height={32} />
+              <Image
+                src="/logo-tr.png"
+                alt="Returners Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
               <p className="font-display text-base text-slate-900">
                 Menu Returners
               </p>

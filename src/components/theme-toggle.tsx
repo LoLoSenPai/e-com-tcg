@@ -6,6 +6,18 @@ type Theme = "light" | "dark";
 
 const storageKey = "nebula-theme";
 
+function readPreferredTheme(): Theme {
+  try {
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+  } catch {}
+  return document.documentElement.classList.contains("theme-dark")
+    ? "dark"
+    : "light";
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   root.classList.remove("theme-light", "theme-dark");
@@ -49,28 +61,31 @@ function MoonIcon() {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const stored = window.localStorage.getItem(storageKey);
-    if (stored === "light" || stored === "dark") {
-      return stored;
-    }
-    return document.documentElement.classList.contains("theme-dark")
-      ? "dark"
-      : "light";
-  });
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+      const preferredTheme = readPreferredTheme();
+      setTheme(preferredTheme);
+      applyTheme(preferredTheme);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleToggle() {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     applyTheme(nextTheme);
-    window.localStorage.setItem(storageKey, nextTheme);
+    try {
+      window.localStorage.setItem(storageKey, nextTheme);
+    } catch {}
   }
 
   const label = theme === "dark" ? "Activer le mode clair" : "Activer le mode sombre";

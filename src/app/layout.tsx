@@ -64,11 +64,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${body.variable} ${display.variable} antialiased`}>
+      <head>
         <script
+          id="theme-init"
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
-          suppressHydrationWarning
         />
+      </head>
+      <body className={`${body.variable} ${display.variable} antialiased`}>
         <CartProvider>
           <div className="site-shell min-h-screen">
             <SiteHeader />

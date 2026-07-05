@@ -30,7 +30,7 @@ describe("email templates", () => {
   it("renders escaped order confirmation content", () => {
     const email = buildOrderConfirmationEmail(baseOrder);
     assert.equal(email.subject, "Merci pour votre commande Returners");
-    assert.match(email.html, /130/);
+    assert.match(email.html, /129,90/);
     assert.match(email.html, /Client &lt;TCG&gt;/);
     assert.match(email.html, /Display &lt;Pokemon&gt;/);
   });
