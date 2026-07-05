@@ -256,10 +256,10 @@ export function CartClient({ products }: CartClientProps) {
                     : "bg-white text-slate-600 hover:-translate-y-0.5"
                 }`}
               >
-                Point relais Boxtal
+                Point relais
               </button>
             </div>
-            <div className="mt-4 rounded-2xl border border-black/10 bg-slate-50/80 p-4 text-sm text-slate-700">
+            <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">
                 {deliveryMode === "home"
                   ? "Livraison a domicile"
@@ -268,7 +268,7 @@ export function CartClient({ products }: CartClientProps) {
               <p className="mt-1 text-xs leading-relaxed text-slate-500">
                 {deliveryMode === "home"
                   ? "Adresse et option standard/express seront confirmees dans Stripe."
-                  : "Choisis un point relais avant le paiement. Le relais est reverifie avant la redirection Stripe."}
+                  : "Choisis un relais avant le paiement. Il sera verifie avant la redirection Stripe."}
               </p>
               <p className="mt-2 text-xs font-medium text-slate-600">
                 {getShippingThresholdMessage(deliveryMode)}

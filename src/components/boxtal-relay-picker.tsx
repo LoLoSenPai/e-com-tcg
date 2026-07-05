@@ -21,6 +21,12 @@ type BoxtalParcelPoint = {
       longitude: number;
     };
   };
+  address?: Partial<BoxtalAddress>;
+  postalCode?: string;
+  zipCode?: string;
+  city?: string;
+  country?: string;
+  street?: string;
 };
 
 type BoxtalMapsInstance = {
@@ -82,7 +88,7 @@ const defaultBoxtalNetworks: Array<{ code: BoxtalNetworkCode }> = [
 const mapConfigNetworksFallback = defaultBoxtalNetworks;
 
 const boxtalDebugNoResponseMessage =
-  "Aucune reponse Boxtal recue. Verifie les cles du composant carte, les reseaux relais et reessaie.";
+  "La carte n'a pas renvoye de relais. Reessaie dans quelques secondes ou utilise une autre adresse.";
 
 const boxtalNoResultMessage =
   "Aucun point relais trouve pour cette adresse. Essaie une autre ville/code postal.";
@@ -98,6 +104,27 @@ const boxtalNetworkSet = new Set<BoxtalNetworkCode>([
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return undefined;
+}
+
+function readNestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const nested = value[key];
+  return isRecord(nested) ? nested : undefined;
 }
 
 function readBoxtalNetworkConfig():
@@ -174,19 +201,67 @@ async function loadBoxtalScript() {
   });
 }
 
-function normalizeRelayPoint(point: BoxtalParcelPoint): ShippingRelayPoint {
+function translateRelaySelectionError(message: string) {
+  if (/zip code|postal/i.test(message)) {
+    return "Le point relais selectionne n'a pas renvoye de code postal exploitable. Choisis-le dans la liste ou relance la recherche.";
+  }
+  if (/city/i.test(message)) {
+    return "Le point relais selectionne n'a pas renvoye de ville exploitable. Choisis-le dans la liste ou relance la recherche.";
+  }
+  if (/invalid relay point|validation/i.test(message)) {
+    return "Ce point relais n'a pas pu etre valide. Relance la recherche ou choisis un autre relais.";
+  }
+  return message;
+}
+
+function translateBoxtalInitError(message: string) {
+  if (/token|unavailable|credential|unauthorized|forbidden|boxtal relay map/i.test(message)) {
+    return "La carte des points relais est momentanement indisponible. Reessaie dans quelques minutes.";
+  }
+  if (/script|component|composant|map/i.test(message)) {
+    return "La carte des points relais n'a pas pu se charger. Reessaie dans quelques minutes.";
+  }
+  return message;
+}
+
+function normalizeRelayPoint(
+  point: BoxtalParcelPoint,
+  fallbackAddress?: Partial<Omit<BoxtalAddress, "country">>,
+): ShippingRelayPoint {
+  const root = point as unknown as Record<string, unknown>;
+  const location = readNestedRecord(root, "location");
+  const locationAddress = readNestedRecord(location, "address");
+  const rootAddress = readNestedRecord(root, "address");
+  const address = locationAddress || rootAddress || {};
+  const position = readNestedRecord(location, "position") || root;
+  const latitude = Number(readString(position.latitude, root.latitude));
+  const longitude = Number(readString(position.longitude, root.longitude));
+
   return {
-    code: point.code,
-    name: point.name,
-    network: point.network,
+    code: readString(root.code, root.parcelPointCode, root.id) || "",
+    name:
+      readString(root.name, root.company, root.tradeName, root.label) ||
+      "Point relais",
+    network: readString(root.network, root.networkCode),
     address: {
-      line1: point.location?.address?.street || undefined,
-      zipCode: point.location?.address?.zipCode || undefined,
-      city: point.location?.address?.city || undefined,
-      country: point.location?.address?.country || "FR",
+      line1: readString(
+        address.street,
+        address.line1,
+        address.address,
+        root.street,
+      ),
+      zipCode: readString(
+        address.zipCode,
+        address.postalCode,
+        root.zipCode,
+        root.postalCode,
+        fallbackAddress?.zipCode,
+      ),
+      city: readString(address.city, root.city, fallbackAddress?.city),
+      country: readString(address.country, root.country) || "FR",
     },
-    latitude: point.location?.position?.latitude,
-    longitude: point.location?.position?.longitude,
+    latitude: Number.isFinite(latitude) ? latitude : undefined,
+    longitude: Number.isFinite(longitude) ? longitude : undefined,
   };
 }
 
@@ -201,6 +276,9 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
   const [searching, setSearching] = useState(false);
   const [signingSelection, setSigningSelection] = useState(false);
   const [resultsCount, setResultsCount] = useState<number | null>(null);
+  const [relayCandidates, setRelayCandidates] = useState<BoxtalParcelPoint[]>(
+    [],
+  );
   const [selectedPoint, setSelectedPoint] = useState<ShippingRelayPoint | null>(
     null,
   );
@@ -228,9 +306,17 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
   }, [onSelect]);
 
   const selectRelayPoint = useCallback(async (point: BoxtalParcelPoint) => {
-    const normalized = normalizeRelayPoint(point);
+    const normalized = normalizeRelayPoint(
+      point,
+      lastSearchAddressRef.current || undefined,
+    );
+    if (!normalized.code || !normalized.name) {
+      setError("Ce point relais est incomplet. Relance la recherche.");
+      return;
+    }
+
     setSigningSelection(true);
-    setSelectedPoint(null);
+    setSelectedPoint(normalized);
     onSelectRef.current(null);
 
     try {
@@ -249,10 +335,12 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
       onSelectRef.current(payload.relayPoint);
       setError("");
     } catch (selectionError) {
-      setError(
+      const message =
         selectionError instanceof Error
           ? selectionError.message
-          : "Validation du point relais impossible",
+          : "Validation du point relais impossible";
+      setError(
+        translateRelaySelectionError(message),
       );
     } finally {
       setSigningSelection(false);
@@ -268,7 +356,11 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
         const tokenResponse = await fetch("/api/boxtal/token");
         const tokenPayload = await tokenResponse.json();
         if (!tokenResponse.ok || !tokenPayload?.accessToken) {
-          throw new Error(tokenPayload?.error || "Token Boxtal indisponible");
+          throw new Error(
+            translateBoxtalInitError(
+              tokenPayload?.error || "Token Boxtal indisponible",
+            ),
+          );
         }
 
         await loadBoxtalScript();
@@ -285,9 +377,9 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           locale: "fr" as const,
           parcelPointNetworks: configuredNetworks,
           options: {
-            autoSelectNearestParcelPoint: true,
+            autoSelectNearestParcelPoint: false,
             primaryColor: "#ff6b35",
-            postalCodeCityInput: true,
+            postalCodeCityInput: false,
           },
         };
 
@@ -308,6 +400,11 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
 
           if (Array.isArray(response)) {
             setResultsCount(response.length);
+            setRelayCandidates(
+              response.filter((point): point is BoxtalParcelPoint =>
+                isRecord(point),
+              ) as BoxtalParcelPoint[],
+            );
             if (
               response.length === 0 &&
               activeCountryRef.current === "FR" &&
@@ -348,10 +445,12 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
         });
       } catch (initError) {
         if (!cancelled) {
-          setError(
+          const message =
             initError instanceof Error
               ? initError.message
-              : "Initialisation Boxtal impossible",
+              : "Initialisation Boxtal impossible";
+          setError(
+            translateBoxtalInitError(message),
           );
         }
       } finally {
@@ -377,6 +476,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     setError("");
     setSearching(true);
     setResultsCount(null);
+    setRelayCandidates([]);
     setSelectedPoint(null);
     retriedWithFraRef.current = false;
     activeCountryRef.current = "FR";
@@ -418,10 +518,20 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
     }
   }
 
+  const relayCandidateRows = relayCandidates
+    .map((point) => ({
+      point,
+      relayPoint: normalizeRelayPoint(
+        point,
+        lastSearchAddressRef.current || undefined,
+      ),
+    }))
+    .filter(({ relayPoint }) => Boolean(relayPoint.code && relayPoint.name));
+
   return (
     <div className="manga-panel manga-dot space-y-3 rounded-2xl bg-white p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-        Point relais Boxtal
+        Point relais
       </p>
       <div className="grid gap-3 md:grid-cols-3">
         <input
@@ -460,18 +570,15 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
           {searching ? "Recherche..." : "Chercher un point relais"}
         </button>
         {loadingToken ? (
-          <p className="text-xs text-slate-500">Initialisation Boxtal...</p>
-        ) : ready ? (
-          <p className="text-xs text-emerald-700">Carte Boxtal prete.</p>
+          <p className="text-xs text-slate-500">Chargement de la carte...</p>
         ) : null}
         {resultsCount !== null ? (
           <p className="text-xs text-slate-500">
-            {resultsCount} point{resultsCount > 1 ? "s" : ""} propose
-            {resultsCount > 1 ? "s" : ""}.
+            {resultsCount} relais disponible{resultsCount > 1 ? "s" : ""}.
           </p>
         ) : null}
         {signingSelection ? (
-          <p className="text-xs text-slate-500">Validation du relais...</p>
+          <p className="text-xs text-slate-500">Validation en cours...</p>
         ) : null}
       </div>
 
@@ -482,13 +589,64 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
       ) : null}
 
       <div
-        id={mapContainerId}
-        className="h-[360px] overflow-hidden rounded-2xl border border-black/10 bg-slate-100"
-      />
+        className={`grid gap-3 ${
+          relayCandidateRows.length > 0
+            ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]"
+            : ""
+        }`}
+      >
+        <div
+          id={mapContainerId}
+          className="h-[340px] overflow-hidden rounded-2xl border border-black/10 bg-slate-100"
+        />
+        {relayCandidateRows.length > 0 ? (
+          <div className="max-h-[340px] space-y-2 overflow-y-auto rounded-2xl border border-black/10 bg-white p-2">
+            {relayCandidateRows.map(({ point, relayPoint }) => {
+              const isSelected = selectedPoint?.code === relayPoint.code;
+
+              return (
+                <button
+                  key={relayPoint.code}
+                  type="button"
+                  onClick={() => void selectRelayPoint(point)}
+                  disabled={signingSelection}
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-xs transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 ${
+                    isSelected
+                      ? "border-emerald-400 bg-white shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)]"
+                      : "border-black/10 bg-white text-slate-700"
+                  }`}
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-slate-900">
+                        {relayPoint.name}
+                      </span>
+                      <span className="mt-1 block text-slate-500">
+                        {relayPoint.address?.line1
+                          ? `${relayPoint.address.line1}, `
+                          : ""}
+                        {relayPoint.address?.zipCode || ""}{" "}
+                        {relayPoint.address?.city || ""}
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white ${
+                        isSelected ? "bg-emerald-600" : "bg-black"
+                      }`}
+                    >
+                      {isSelected ? "Choisi" : "Choisir"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
 
       {selectedPoint ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-          <p className="font-semibold">{selectedPoint.name}</p>
+        <div className="rounded-xl border border-emerald-300 bg-white p-3 text-xs text-slate-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)]">
+          <p className="font-semibold">Relais choisi: {selectedPoint.name}</p>
           <p>
             {selectedPoint.address?.line1
               ? `${selectedPoint.address.line1}, `
@@ -502,7 +660,7 @@ export function BoxtalRelayPicker({ onSelect }: BoxtalRelayPickerProps) {
         </div>
       ) : (
         <p className="text-xs text-slate-500">
-          Selectionne un point relais sur la carte apres la recherche.
+          Aucun relais choisi pour le moment.
         </p>
       )}
     </div>

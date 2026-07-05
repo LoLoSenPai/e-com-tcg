@@ -38,7 +38,7 @@ export function getShippingQuotes(
       makeQuote({
         code: "relay_boxtal",
         mode,
-        label: "Point relais Boxtal",
+        label: "Point relais",
         description:
           subtotal >= relayFreeThreshold
             ? "Offert a partir de 79 EUR"
